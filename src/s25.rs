@@ -10,7 +10,7 @@ use failure::Fail;
 const S25_MAGIC: &[u8; 4] = b"S25\0";
 const S25_BYTES_PER_PIXEL: usize = 4;
 
-pub struct S25Archive<A> {
+pub struct S25Archive<A = File> {
     pub file: BufReader<A>,
     pub entries: Vec<Option<i32>>,
 }
@@ -189,7 +189,7 @@ where
 
         let mut offset = 0;
         let mut decode_buf = Vec::<u8>::with_capacity(metadata.width as usize);
-        
+
         // すべての行を走査してデコードしていく
         for row_offset in rows {
             self.file.seek(SeekFrom::Start(row_offset as u64))?;
@@ -229,10 +229,11 @@ where
 
             let (method, skip) = (count >> 13, (count >> 11) & 0x03);
             decode_counter += skip as usize;
-            
+
             let count = {
                 let count = count & 0x7ff;
-                if count == 0 { // 拡張カウント
+                if count == 0 {
+                    // 拡張カウント
                     let new_count = i32::from_le_bytes(
                         *<&[u8; 4]>::try_from(&decode_buf[decode_counter..][..4]).unwrap(),
                     );
@@ -240,7 +241,8 @@ where
                     new_count
                 } else {
                     count as i32
-                }.min(count_remaining)
+                }
+                .min(count_remaining)
             };
 
             count_remaining -= count;
@@ -355,7 +357,8 @@ fn unpack_s25() {
     let file = File::create(path).unwrap();
     let ref mut w = BufWriter::new(file);
 
-    let mut encoder = png::Encoder::new(w, touka.metadata.width as u32, touka.metadata.height as u32);
+    let mut encoder =
+        png::Encoder::new(w, touka.metadata.width as u32, touka.metadata.height as u32);
     encoder.set_color(png::ColorType::RGBA);
     encoder.set_depth(png::BitDepth::Eight);
     let mut writer = encoder.write_header().unwrap();
