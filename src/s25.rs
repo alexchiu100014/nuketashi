@@ -193,7 +193,7 @@ where
         // すべての行を走査してデコードしていく
         for row_offset in rows {
             self.file.seek(SeekFrom::Start(row_offset as u64))?;
-            let row_length = read_i16(&mut self.file)?;
+            let row_length = read_i16(&mut self.file)? as u16;
 
             let row_length = if row_offset & 0x01 != 0 {
                 self.file.read_exact(&mut [0u8])?; // 1バイトだけ読み飛ばす
@@ -363,4 +363,23 @@ fn unpack_s25() {
     encoder.set_depth(png::BitDepth::Eight);
     let mut writer = encoder.write_header().unwrap();
     writer.write_image_data(&touka.rgba_buffer).unwrap();
+}
+
+#[test]
+fn unpack_s25_RCI_LL() {
+    use std::io::BufWriter;
+
+    let mut s25 = S25Archive::open("./blob/NUKITASHI_E2.WAR/RCI_LL.S25").unwrap();
+    let rei = s25.load_image(1).unwrap(); // malloc: can't allocate region
+
+    let path = Path::new(r"./test/rei.png");
+    let file = File::create(path).unwrap();
+    let ref mut w = BufWriter::new(file);
+
+    let mut encoder =
+        png::Encoder::new(w, rei.metadata.width as u32, rei.metadata.height as u32);
+    encoder.set_color(png::ColorType::RGBA);
+    encoder.set_depth(png::BitDepth::Eight);
+    let mut writer = encoder.write_header().unwrap();
+    writer.write_image_data(&rei.rgba_buffer).unwrap();
 }
