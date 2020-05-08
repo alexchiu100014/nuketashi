@@ -189,6 +189,10 @@ where
 
         event.clear();
 
+        if self.is_ctrl_pressing {
+            self.is_waiting = false;
+        }
+
         if self.is_waiting {
             return Some(());
         }
@@ -216,7 +220,7 @@ where
                 self.exec_command(&command);
 
             } else if sbuf.is_empty() && !message_queue.is_empty() {
-                self.is_waiting = !self.is_ctrl_pressing;
+                self.is_waiting = true;
                 log::debug!("queue {:?}", message_queue);
                 break;
             } else if !sbuf.is_empty() {
