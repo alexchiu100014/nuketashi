@@ -31,6 +31,10 @@ pub trait State {
     /// }
     /// ```
     fn update(&mut self, event: &mut EventPool, delta_time: f64) -> Option<()>;
+
+    fn font_glyphs(&mut self) -> Option<&mut Glyphs> {
+        None
+    }
 }
 
 /// ステートを保持し，Stateに描画ルーチンと更新ルーチンを発行する．
@@ -174,10 +178,14 @@ impl<'t> StateManager<'t> {
         if let Some(v) = evt.render_args() {
             let w = v.draw_size;
 
-            window.draw_2d(&evt, |c, g, _d| {
+            window.draw_2d(&evt, |c, g, d| {
                 scene
                     .draw((f64::from(w[0]), f64::from(w[1])), c, g)
                     .unwrap();
+
+                if let Some(glyphs) = scene.font_glyphs() {
+                    glyphs.factory.encoder.flush(d);
+                }
             });
         }
     }

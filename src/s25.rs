@@ -376,8 +376,7 @@ fn unpack_s25_RCI_LL() {
     let file = File::create(path).unwrap();
     let ref mut w = BufWriter::new(file);
 
-    let mut encoder =
-        png::Encoder::new(w, rei.metadata.width as u32, rei.metadata.height as u32);
+    let mut encoder = png::Encoder::new(w, rei.metadata.width as u32, rei.metadata.height as u32);
     encoder.set_color(png::ColorType::RGBA);
     encoder.set_depth(png::BitDepth::Eight);
     let mut writer = encoder.write_header().unwrap();

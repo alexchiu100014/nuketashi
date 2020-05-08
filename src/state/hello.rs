@@ -2,7 +2,7 @@ use crate::state::{EventPool, State};
 use piston_window::*;
 use std::f64;
 
-use crate::s25::{S25Archive, S25Image};
+use crate::s25::S25Archive;
 use std::io::{BufRead, BufReader, Cursor, Read, Seek};
 
 use std::path::PathBuf;
@@ -13,6 +13,9 @@ pub struct Hello<R> {
     is_ctrl_pressing: bool,
     layers: Vec<Layer>,
     face: Option<Layer>,
+    character_name: Option<String>,
+    dialogue: Option<String>,
+    font: Glyphs,
 }
 
 #[derive(Default)]
@@ -39,7 +42,7 @@ fn find_asset(filename: &str) -> PathBuf {
 }
 
 impl Hello<Cursor<&'static [u8]>> {
-    pub fn new() -> Self {
+    pub fn new(font: Glyphs) -> Self {
         Hello {
             script: BufReader::new(Cursor::new(
                 &include_bytes!("../../blob/___t.WAR/02_NK_03.TXT")[..],
@@ -52,6 +55,9 @@ impl Hello<Cursor<&'static [u8]>> {
                 layers
             },
             face: None,
+            character_name: None,
+            dialogue: None,
+            font,
         }
     }
 }
@@ -194,11 +200,34 @@ impl<T> Hello<T> {
             }
         }
     }
-}
 
-impl Default for Hello<Cursor<&'static [u8]>> {
-    fn default() -> Self {
-        Self::new()
+    fn display_message(&mut self, message: Vec<String>) {
+        let mut character_name = None;
+        let mut dialogue: String = String::new();
+
+        for m in message {
+            if m.starts_with('【') {
+                character_name = Some(
+                    m.trim_start_matches('【')
+                        .trim_end_matches('】')
+                        .split('/')
+                        .last()
+                        .unwrap()
+                        .to_string(),
+                );
+
+                continue;
+            }
+
+            dialogue.push_str(&m);
+        }
+
+        self.character_name = character_name;
+        self.dialogue = if dialogue.is_empty() {
+            None
+        } else {
+            Some(dialogue)
+        };
     }
 }
 
@@ -230,6 +259,7 @@ where
             }
         }
 
+        // 顔を表示
         if let Some(l) = &self.face {
             for (t, (x, y)) in l.textures.iter().zip(l.origin.iter()) {
                 let transform = c.transform.trans(*x as f64, *y as f64);
@@ -244,7 +274,52 @@ where
             }
         }
 
+        // 文字を表示
+        if let Some(name) = &self.character_name {
+            let transform = c.transform.trans(380.0, 680.0);
+
+            // 影
+            for i in 0..7 {
+                for j in 0..7 {
+                    let transform = transform.trans(i as f64 - 3.0, j as f64 - 3.0);
+
+                    text::Text::new_color([0.0, 0.0, 0.0, 1.0], 32)
+                        .draw(name, &mut self.font, &c.draw_state, transform, g)
+                        .unwrap();
+                }
+            }
+
+            // 中身
+            text::Text::new_color([1.0, 1.0, 1.0, 1.0], 32)
+                .draw(name, &mut self.font, &c.draw_state, transform, g)
+                .unwrap();
+        }
+
+        if let Some(dialogue) = &self.dialogue {
+            let transform = c.transform.trans(380.0, 740.0);
+
+            // 影
+            for i in 0..7 {
+                for j in 0..7 {
+                    let transform = transform.trans(i as f64 - 3.0, j as f64 - 3.0);
+
+                    text::Text::new_color([0.0, 0.0, 0.0, 1.0], 32)
+                        .draw(dialogue, &mut self.font, &c.draw_state, transform, g)
+                        .unwrap();
+                }
+            }
+
+            // 中身
+            text::Text::new_color([1.0, 1.0, 1.0, 1.0], 32)
+                .draw(dialogue, &mut self.font, &c.draw_state, transform, g)
+                .unwrap();
+        }
+
         Some(())
+    }
+
+    fn font_glyphs(&mut self) -> Option<&mut Glyphs> {
+        Some(&mut self.font)
     }
 
     fn update(&mut self, event: &mut EventPool, _: f64) -> Option<()> {
@@ -311,6 +386,8 @@ where
 
             buf.clear();
         }
+
+        self.display_message(message_queue);
 
         Some(())
     }

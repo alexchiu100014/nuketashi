@@ -44,7 +44,11 @@ fn main() {
 
     let mut mgr = StateManager::new();
     // let test = mgr.set_state(crate::state::splash::Splash::new()); // 最初のシーン
-    mgr.set_state(state::hello::Hello::new()); // debug
+    mgr.set_state(state::hello::Hello::new(
+        window
+            .load_font("./blob/NUKITASHI_D.WAR/ROUNDED-X-MGENPLUS-1M.TTF")
+            .unwrap(),
+    )); // debug
 
     while let Some(e) = window.next() {
         mgr.handle_event(&mut window, e);
