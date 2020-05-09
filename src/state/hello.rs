@@ -7,7 +7,6 @@ use std::io::{BufRead, BufReader, Cursor, Read, Seek};
 
 use std::path::PathBuf;
 
-use lazy_static::*;
 use rodio::{Device, Sink};
 
 pub struct Hello<R> {

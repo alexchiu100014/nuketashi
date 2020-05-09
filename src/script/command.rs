@@ -3,7 +3,7 @@ pub struct LMont {
     pub path: String,
     pub x: i32,
     pub y: i32,
-    _reserved: u32, // to be 0
+    _reserved: u32, // to be 0?
     pub pict_layers: Vec<Option<u32>>,
 }
 
@@ -12,7 +12,7 @@ pub struct LChr {
     pub path: Option<String>,
     pub x: Option<i32>,
     pub y: Option<i32>,
-    _reserved: Option<i32>,
+    pub entry_no: Option<i32>,
 }
 
 // 2: $A_CHR,00,2                           AChr(N1, L)                       clearing the anim?
@@ -23,28 +23,27 @@ pub struct LChr {
 // 7: $A_CHR,20,13,140,488,360,3000,1       AChr(N1, L, L2, X, Y, D, N2)      idk
 // 8: $A_CHR,06,1,4,15,100$L_DELAY,0,T,800                                    all acc. with $L_DELAY, probably = 5?
 pub struct AChr {
-    // ^\$A_CHR(,[^,]+){2}$
-    pub num1: i32, // probably command ID?
-    pub path: Option<String>,
-    pub layer: i32,
-    pub layer_2: Option<i32>,
-    pub x: Option<i32>,
-    pub y: Option<i32>,
-    pub duration: Option<i32>,
-    pub num2: Option<i32>, // 1 or 600 or 1000, non-trivial (mostly 1)
+    pub command_id: i32,
+    pub rest: Vec<String>,
 }
 
 pub struct LDelay {
     // TODO:
 }
 
+// Flush all draw calls and fade into the next frame.
 pub struct Draw {
-    // TODO:
-    pub num1: i32,
+    pub duration: i32,
 }
 
+// DrawEx(N1, P, D, F)
+// Flush all draw calls and fade into the next frame
+// with overlay.
 pub struct DrawEx {
-    // TODO:
+    pub num1: i32, // 0 or 2, blending option?
+    pub path: Option<String>, // .S25 file. optional
+    pub duration: i32, // duration of effect?
+    pub flag: i32, // 0 or 1, 
 }
 
 pub struct Wait {
@@ -53,7 +52,9 @@ pub struct Wait {
 
 // $EX,PPFGBLUR,11,0
 pub struct Effect {
-    // TODO:
+    pub effect_name: String, // PPFGBLUR is only known
+    pub blur_x: i32,
+    pub blur_y: i32,
 }
 
 // $SE

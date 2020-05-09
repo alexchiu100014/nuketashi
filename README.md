@@ -4,6 +4,7 @@ The "experimental" multi-platform script execution engine for a certain vn game.
 
 This is "experimental" i.e. quite far from the best.
 
+
 ## Prerequisites
 
 * Computer with OpenGL capability
@@ -16,6 +17,8 @@ This is "experimental" i.e. quite far from the best.
     * Seriously...
 
 ## Current status
+
+For the command specification, see [here](COMMANDS.md).
 
 * Script
     * Commands
