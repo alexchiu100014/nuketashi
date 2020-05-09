@@ -24,7 +24,7 @@ pub struct LChr {
 // 8: $A_CHR,06,1,4,15,100$L_DELAY,0,T,800                                    all acc. with $L_DELAY, probably = 5?
 pub struct AChr {
     // ^\$A_CHR(,[^,]+){2}$
-    pub num1: i32, // probably frame?
+    pub num1: i32, // probably command ID?
     pub path: Option<String>,
     pub layer: i32,
     pub layer_2: Option<i32>,

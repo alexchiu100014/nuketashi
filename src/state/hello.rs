@@ -21,6 +21,7 @@ pub struct Hello<R> {
 #[derive(Default)]
 pub struct Layer {
     s25: Option<S25Archive>,
+    global_origin: (i32, i32),
     textures: Vec<Option<G2dTexture>>,
     origin: Vec<(i32, i32)>,
 }
@@ -41,12 +42,16 @@ fn find_asset(filename: &str) -> PathBuf {
     unreachable!("missing file: {}; which was not expected", filename)
 }
 
-impl Hello<Cursor<&'static [u8]>> {
+impl Hello<std::io::Cursor<String>> {
     pub fn new(font: Glyphs) -> Self {
+        use encoding_rs::SHIFT_JIS;
+
+        let inner = &include_bytes!("../../blob/NUKITASHI_T.WAR/01_C_01.TXT")[..];
+        let (inner, _, _) = SHIFT_JIS.decode(inner);
+        let inner = Cursor::new(inner.to_string());
+
         Hello {
-            script: BufReader::new(Cursor::new(
-                &include_bytes!("../../blob/___t.WAR/02_NK_03.TXT")[..],
-            )),
+            script: BufReader::new(inner),
             is_waiting: false,
             is_ctrl_pressing: false,
             layers: {
@@ -95,8 +100,9 @@ impl<T> Hello<T> {
 
                     self.layers[layer_no] = Layer {
                         s25: Some(arc),
+                        global_origin: (x, y),
                         textures: vec![Some(tex)],
-                        origin: vec![(x + img.metadata.offset_x, y + img.metadata.offset_y)],
+                        origin: vec![(img.metadata.offset_x, img.metadata.offset_y)],
                     };
                 } else {
                     // clear layer
@@ -144,13 +150,14 @@ impl<T> Hello<T> {
                     );
 
                     textures.push(Some(tex));
-                    origin.push((img.metadata.offset_x + x, img.metadata.offset_y + y));
+                    origin.push((img.metadata.offset_x, img.metadata.offset_y));
                 }
 
                 self.layers[layer_no] = Layer {
                     s25: Some(arc),
                     textures,
                     origin,
+                    global_origin: (x, y),
                 };
             }
             "$FACE" => {
@@ -193,7 +200,47 @@ impl<T> Hello<T> {
                     s25: Some(arc),
                     textures,
                     origin,
+                    global_origin: (0, 0),
                 });
+            }
+            "$A_CHR" => {
+                // TODO: 
+                let command_id: usize = command[1].parse().unwrap();
+
+                match command_id {
+                    150 => {
+                        // dissolve?
+                        let layer: usize = command[2].parse().unwrap();
+                        let _duration: i32 = command[3].parse().unwrap();
+
+                        self.layers[layer] = Layer {
+                            s25: None,
+                            textures: vec![],
+                            origin: vec![],
+                            global_origin: (0, 0)
+                        };
+                    }
+                    128 => {
+                        // moveBy?
+                        let layer: usize = command[2].parse().unwrap();
+                        let dx: i32 = command[2].parse().unwrap();
+                        let dy: i32 = command[3].parse().unwrap();
+                        let _duration: i32 = command[4].parse().unwrap();
+                        let _unused: i32 = command[5].parse().unwrap();
+
+                        for (x, y) in self.layers[layer].origin.iter_mut() {
+                            *x += dx;
+                            *y += dy;
+                        }
+                    }
+                    _ => {
+                        log::error!(
+                            "unrecognized animator command {}; command with {} args",
+                            command_id,
+                            command.len() - 1
+                        );
+                    }
+                }
             }
             _ => {
                 log::error!("unrecognized command {}", command[0]);
@@ -235,7 +282,7 @@ impl<R> State for Hello<R>
 where
     R: Read + Seek,
 {
-    fn draw(&mut self, _v: (f64, f64), c: Context, g: &mut G2d) -> Option<()> {
+    fn draw(&mut self, v: (f64, f64), c: Context, g: &mut G2d) -> Option<()> {
         use piston_window::draw_state::Blend;
 
         // スクリーンバッファをクリア
@@ -243,11 +290,13 @@ where
         g.clear_stencil(0);
 
         let draw_state = c.draw_state.blend(Blend::Alpha);
+        let transform = c.transform.scale(v.0 / 3200.0, v.1 / 1800.0);
 
         // 全てのレイヤーを描画
         for l in &self.layers {
+            let transform = transform.trans(l.global_origin.0 as f64, l.global_origin.1 as f64);
             for (t, (x, y)) in l.textures.iter().zip(l.origin.iter()) {
-                let transform = c.transform.trans(*x as f64, *y as f64);
+                let transform = transform.trans(*x as f64, *y as f64);
 
                 let t = if let Some(t) = t {
                     t
@@ -262,7 +311,7 @@ where
         // 顔を表示
         if let Some(l) = &self.face {
             for (t, (x, y)) in l.textures.iter().zip(l.origin.iter()) {
-                let transform = c.transform.trans(*x as f64, *y as f64);
+                let transform = transform.trans(*x as f64, *y as f64);
 
                 let t = if let Some(t) = t {
                     t
@@ -276,7 +325,7 @@ where
 
         // 文字を表示
         if let Some(name) = &self.character_name {
-            let transform = c.transform.trans(380.0, 680.0);
+            let transform = transform.trans(380.0, 680.0);
 
             // 影
             for i in 0..7 {
@@ -296,7 +345,7 @@ where
         }
 
         if let Some(dialogue) = &self.dialogue {
-            let transform = c.transform.trans(380.0, 740.0);
+            let transform = transform.trans(380.0, 740.0);
 
             // 影
             for i in 0..7 {
@@ -361,7 +410,7 @@ where
 
         while let Ok(size) = self.script.read_line(&mut buf) {
             if size == 0 {
-                log::debug!("end of scenario, congrats!");
+                // log::debug!("end of scenario, congrats!");
                 break;
             }
 
