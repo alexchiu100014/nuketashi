@@ -11,85 +11,11 @@ and is written in this document as the following format (as for convenience):
 CmdName(A1, A2, A3, ...)
 ```
 
-## `Draw`
-
-### Syntax
-```
-Draw(D)
-```
-
-### Behaviour
-
-Flush all the drawing commands and fade into the newly-drawn buffer.
-
-### Parameters
-- `D` : duration (in milliseconds)
-
-## `Face`
-
-### `Face()`
-
-#### Syntax
-```
-Face()
-```
-
-#### Behaviour
-
-Clear the face layer.
-
-#### Paramters
-
-None.
-
-### `Face(P, 'm', PL1, PL2...)`
-
-#### Syntax
-```
-Face(P, 'm', PL1, PL2...)
-```
-
-#### Behaviour
-
-Display the image on the face layer.
-
-#### Paramters
-- `P` : path to the image
-- `PL1, PL2, ...` : choices of pict-layer
-
-## `FaceAuto`
-
-### Syntax
-```
-FaceAuto(F)
-```
-
-### Behaviour
-
-Set the flag to enable auto-face display.
-
-### Paramters
-- `F` : the flag value
-
-## `FaceAnime`
-
-### Syntax
-```
-FaceAnime(F)
-```
-
-### Behaviour
-
-Set the flag to enable face animation.
-
-### Paramters
-- `F` : the flag value
-
 ## `AChr`
 
-### 02: `AChr(02, L, X, Y, D)`
+### 02 `BOUNCE`: `AChr(02, L, X, Y, D)`
 
-Bounce. Move to (X, Y) and move back to the original position.
+The bounce effect. Move to (X, Y) and move back to the original position.
 
 **TODO: move behaviour**
 
@@ -98,16 +24,38 @@ Bounce. Move to (X, Y) and move back to the original position.
 - `X, Y` : position
 - `D` : duration (in milliseconds)
 
-### 11: `AChr(11, L, N1, N2, N3, D)`
+### 06 `_`: `AChr(06, N1, N2, N3, N4)`
 
-Blink.
+**TODO:**
+
+#### Parameters
+- `N1, N2, N3, N4` : unknown parameters
+
+### 11 `BLINK`: `AChr(11, L, N1, N2, N3, D)`
+
+Blinks the layer.
 
 #### Parameters
 - `L` : layer to fade
 - `N1, N2, N3` : unknown parameters
 - `D` : duration (in milliseconds)
 
-### 60: `AChr(60, L, P, D)`
+### 20 `_`: `AChr(20, L, N1, N2, N3, N4, N5)`
+
+**TODO:**
+
+#### Parameters
+- `L` : layer
+- `N1, N2, N3, N4, N5` : unknown parameters
+
+### 30 `_`: `AChr(30, N1, N2, N3, N4, N5)`
+
+**TODO:**
+
+#### Parameters
+- `N1, N2, N3, N4, N5` : unknown parameters
+
+### 60 `OVL_FADE_IN`: `AChr(60, L, P, D)`
 
 Overlay fade-in?
 
@@ -131,27 +79,166 @@ void frag() {
 - `P` : path to the overlay image
 - `D` : duration (in milliseconds)
 
-### 128: `AChr(128, L, X, Y, D, N1)`
+### 61 `OVL_FADE_OUT`: `AChr(61, L, P, D)`
 
-Move the layer.
+Overlay fade-out?
+
+**TODO: not tested nor checked**
+
+#### Parameters
+- `L` : layer to fade
+- `P` : path to the overlay image
+- `D` : duration (in milliseconds)
+
+### 128 `MOVE_TO`: `AChr(128, L, X, Y, D, N1)`
+
+Moves the layer.
 
 #### Parameters
 - `X, Y` : position
 - `D` : duration (in milliseconds)
 - `N1` : Unknown parameter. (probably easing option?)
 
-### 150: `AChr(150, L, D)`
+### 150 `FADE_OUT`: `AChr(150, L, D)`
 
-Fade the specified layer out.
+Fades the specified layer out.
+
+#### Parameters
+- `L` : layer to fade
+- `D` : duration (in milliseconds)
+
+### 151 `FADE_IN`: `AChr(151, L, D)`
+
+Fades the specified layer in.
 
 #### Parameters
 - `L` : layer to fade
 - `D` : duration (in milliseconds)
 
-### 151: `AChr(151, L, D)`
+## `Draw`
 
-Fade the specified layer in.
+### Syntax
+```
+Draw(D)
+```
 
-#### Parameters
-- `L` : layer to fade
+### Behaviour
+
+Flushes all the drawing commands and fade into the newly-drawn buffer.
+
+### Parameters
 - `D` : duration (in milliseconds)
+
+## `Face`
+
+### `Face()`
+
+#### Syntax
+```
+Face()
+```
+
+#### Behaviour
+
+Clears the face layer.
+
+#### Paramters
+
+None.
+
+### `Face(P, 'm', PL1, PL2...)`
+
+#### Syntax
+```
+Face(P, 'm', PL1, PL2...)
+```
+
+#### Behaviour
+
+Displays the image on the face layer.
+
+#### Paramters
+- `P` : path to the image
+- `PL1, PL2, ...` : choices of pict-layer
+
+## `FaceAuto`
+
+### Syntax
+```
+FaceAuto(F)
+```
+
+### Behaviour
+
+Sets the flag to enable auto-face display.
+
+### Paramters
+- `F` : the flag value
+
+## `FaceAnime`
+
+### Syntax
+```
+FaceAnime(F)
+```
+
+### Behaviour
+
+Sets the flag to enable face animation.
+
+### Paramters
+- `F` : the flag value
+
+## `LChr`
+
+### `LChr(L)`
+
+#### Syntax
+```
+LChr(L)
+```
+
+#### Behaviour
+
+Clear the layer.
+
+#### Paramters
+
+- `L`: the layer number
+
+### `LChr(L, P, X, Y, E)`
+
+#### Syntax
+```
+LChr(L, P, X, Y, E)
+```
+
+#### Behaviour
+
+Displays the specified image on the specified layer at (X, Y).
+
+#### Paramters
+- `P` : path to the image
+- `X, Y` : position
+- `E` : unknown; probably entry number of the image
+
+## `LMont`
+
+### `LMont(L, P, 'm', PL1, PL2...)`
+
+#### Syntax
+```
+Face(L, P, X, Y, N1, 'm', PL1, PL2...)
+```
+
+#### Behaviour
+
+Displays the combined image on the specified layer at (X, Y).
+The combination of pict-layer is given by `PL1, PL2, ...`.
+
+#### Paramters
+- `L` : layer to display
+- `P` : path to the image
+- `X, Y` : position
+- `N1` : unknown
+- `PL1, PL2, ...` : choices of pict-layer
