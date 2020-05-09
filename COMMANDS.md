@@ -6,20 +6,86 @@ In nkts script, every command is in the following format:
 ```
 $CMD_NAME,arg1,arg2,arg3,...
 ```
-and is written of this document as the following (for convenience):
+and is written in this document as the following format (as for convenience):
 ```
 CmdName(A1, A2, A3, ...)
 ```
 
-## Draw
+## `Draw`
 
-## Face
+### Syntax
+```
+Draw(D)
+```
 
-## FaceAuto
+### Behaviour
 
-## FaceAnime
+Flush all the drawing commands and fade into the newly-drawn buffer.
 
-## AChr
+### Parameters
+- `D` : duration (in milliseconds)
+
+## `Face`
+
+### `Face()`
+
+#### Syntax
+```
+Face()
+```
+
+#### Behaviour
+
+Clear the face layer.
+
+#### Paramters
+
+None.
+
+### `Face(P, 'm', PL1, PL2...)`
+
+#### Syntax
+```
+Face(P, 'm', PL1, PL2...)
+```
+
+#### Behaviour
+
+Display the image on the face layer.
+
+#### Paramters
+- `P` : path to the image
+- `PL1, PL2, ...` : choices of pict-layer
+
+## `FaceAuto`
+
+### Syntax
+```
+FaceAuto(F)
+```
+
+### Behaviour
+
+Set the flag to enable auto-face display.
+
+### Paramters
+- `F` : the flag value
+
+## `FaceAnime`
+
+### Syntax
+```
+FaceAnime(F)
+```
+
+### Behaviour
+
+Set the flag to enable face animation.
+
+### Paramters
+- `F` : the flag value
+
+## `AChr`
 
 ### 02: `AChr(02, L, X, Y, D)`
 
