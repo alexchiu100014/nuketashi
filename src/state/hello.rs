@@ -7,6 +7,9 @@ use std::io::{BufRead, BufReader, Cursor, Read, Seek};
 
 use std::path::PathBuf;
 
+use lazy_static::*;
+use rodio::{Device, Sink};
+
 pub struct Hello<R> {
     script: BufReader<R>,
     is_waiting: bool,
@@ -16,6 +19,9 @@ pub struct Hello<R> {
     character_name: Option<String>,
     dialogue: Option<String>,
     font: Glyphs,
+    device: Device,
+    voice_channel: Option<Sink>,
+    bgm: Option<Sink>,
 }
 
 #[derive(Default)]
@@ -46,9 +52,11 @@ impl Hello<std::io::Cursor<String>> {
     pub fn new(font: Glyphs) -> Self {
         use encoding_rs::SHIFT_JIS;
 
-        let inner = &include_bytes!("../../blob/NUKITASHI_T.WAR/01_C_01.TXT")[..];
+        let inner = &include_bytes!("../../blob/NUKITASHI_T.WAR/04_MH_15.TXT")[..];
         let (inner, _, _) = SHIFT_JIS.decode(inner);
         let inner = Cursor::new(inner.to_string());
+
+        let device = rodio::default_output_device().unwrap();
 
         Hello {
             script: BufReader::new(inner),
@@ -63,6 +71,9 @@ impl Hello<std::io::Cursor<String>> {
             character_name: None,
             dialogue: None,
             font,
+            device: rodio::default_output_device().unwrap(),
+            voice_channel: None,
+            bgm: None,
         }
     }
 }
@@ -132,7 +143,7 @@ impl<T> Hello<T> {
                 assert_eq!(command[6], "m");
 
                 for (i, entry) in (&command[7..]).iter().enumerate() {
-                    let entry: i32 = entry.parse().unwrap();
+                    let entry: i32 = entry.parse().unwrap_or(-1);
 
                     if entry == -1 {
                         textures.push(None);
@@ -159,6 +170,55 @@ impl<T> Hello<T> {
                     origin,
                     global_origin: (x, y),
                 };
+
+                // TODO: register face, should be asserted from script message
+                if !command[2].starts_with("st\\") {
+                    return;
+                }
+
+                let filename: &str =
+                    filename
+                        .trim_end_matches(".s25")
+                        .trim_end_matches(|c| match c {
+                            'S' | 'F' | 'M' | 'L' => true,
+                            _ => false,
+                        });
+                let filename = &*format!("{}F.s25", filename);
+                let mut arc = S25Archive::open(find_asset(filename)).unwrap();
+
+                let mut textures = Vec::new();
+                let mut origin = Vec::new();
+
+                assert_eq!(command[6], "m");
+
+                for (i, entry) in (&command[7..]).iter().enumerate() {
+                    let entry: i32 = entry.parse().unwrap_or(-1);
+
+                    if entry == -1 {
+                        textures.push(None);
+                        origin.push((0, 0));
+
+                        continue;
+                    }
+
+                    let img = arc.load_image(entry as usize + 100 * i).unwrap();
+                    let tex = crate::assets::load_image_from_rgba(
+                        &img.rgba_buffer,
+                        img.metadata.width as usize,
+                        img.metadata.height as usize,
+                        "___",
+                    );
+
+                    textures.push(Some(tex));
+                    origin.push((img.metadata.offset_x, img.metadata.offset_y));
+                }
+
+                self.face = Some(Layer {
+                    s25: Some(arc),
+                    textures,
+                    origin,
+                    global_origin: (0, 0),
+                });
             }
             "$FACE" => {
                 if command.len() == 1 {
@@ -175,7 +235,7 @@ impl<T> Hello<T> {
                 assert_eq!(command[2], "m");
 
                 for (i, entry) in (&command[3..]).iter().enumerate() {
-                    let entry: i32 = entry.parse().unwrap();
+                    let entry: i32 = entry.parse().unwrap_or(-1);
 
                     if entry == -1 {
                         textures.push(None);
@@ -204,7 +264,7 @@ impl<T> Hello<T> {
                 });
             }
             "$A_CHR" => {
-                // TODO: 
+                // TODO:
                 let command_id: usize = command[1].parse().unwrap();
 
                 match command_id {
@@ -217,21 +277,21 @@ impl<T> Hello<T> {
                             s25: None,
                             textures: vec![],
                             origin: vec![],
-                            global_origin: (0, 0)
+                            global_origin: (0, 0),
                         };
                     }
                     128 => {
-                        // moveBy?
+                        // moveTo?
+                        // $A_CHR,128,3,0,0,1200,1
                         let layer: usize = command[2].parse().unwrap();
                         let dx: i32 = command[2].parse().unwrap();
                         let dy: i32 = command[3].parse().unwrap();
                         let _duration: i32 = command[4].parse().unwrap();
                         let _unused: i32 = command[5].parse().unwrap();
 
-                        for (x, y) in self.layers[layer].origin.iter_mut() {
-                            *x += dx;
-                            *y += dy;
-                        }
+                        let (x, y) = self.layers[layer].global_origin;
+
+                        self.layers[layer].global_origin = (x + dx, y + dy);
                     }
                     _ => {
                         log::error!(
@@ -240,6 +300,44 @@ impl<T> Hello<T> {
                             command.len() - 1
                         );
                     }
+                }
+            }
+            "$VOICE" => {
+                use std::fs::File;
+
+                if let Some(voice) = self.voice_channel.take() {
+                    voice.stop();
+                }
+
+                let filename: &str = command[1].split('\\').skip(1).next().unwrap();
+                let filename = find_asset(filename);
+                let voice = rodio::Decoder::new(File::open(filename).unwrap()).unwrap();
+
+                let voice_ch = Sink::new(&self.device);
+                voice_ch.append(voice);
+
+                self.voice_channel = Some(voice_ch);
+            }
+            "$MUSIC" => {
+                use std::fs::File;
+
+                if let Some(bgm) = self.bgm.take() {
+                    bgm.stop();
+                }
+
+                let filename: &str = command[1].split('\\').skip(1).next().unwrap();
+                let filename = find_asset(filename);
+                let bgm = rodio::Decoder::new(File::open(filename).unwrap()).unwrap();
+
+                let bgm_ch = Sink::new(&self.device);
+                bgm_ch.set_volume(0.3);
+                bgm_ch.append(bgm);
+
+                self.bgm = Some(bgm_ch);
+            }
+            "$MUSIC_FADE" => {
+                if let Some(bgm) = self.bgm.take() {
+                    bgm.stop();
                 }
             }
             _ => {

@@ -15,3 +15,5 @@ png = "0.16.3"
 piston_window = "0.108.0"
 lazy_static = "1.4.0"
 image = "0.23.4"
+# workaround for BackendSpecificError { description: "core foundation unexpectedly returned null string" }
+rodio = { git = "https://github.com/RustAudio/rodio" }
