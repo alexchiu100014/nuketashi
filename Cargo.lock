@@ -685,10 +685,12 @@ dependencies = [
 name = "nkts"
 version = "0.1.0"
 dependencies = [
+ "cocoa 0.20.0",
  "encoding_rs",
  "failure",
  "lazy_static",
  "log",
+ "objc",
  "png",
  "simplelog",
  "vulkano",

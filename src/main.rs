@@ -1,5 +1,8 @@
-#[warn(clippy::all)]
+#![warn(clippy::all)]
+
+pub mod constants;
 pub mod game;
+pub mod platform;
 pub mod s25;
 pub mod script;
 
