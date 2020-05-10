@@ -19,7 +19,7 @@ This is "experimental" i.e. quite far from the best.
         * GPU (discrete): AMD Radeon Pro 5300M 4 GB
 * Latest Rust stable compiler
 * All assets extracted under `./blob/`
-    * For "nukitashi", sse `arc-unpacker` or `GARbro`. We are lazy to implement the extraction/decryption methods.
+    * For "nukitashi", use `arc-unpacker` or `GARbro`. We are lazy to implement the extraction/decryption methods.
     * For "nukitashi2", see https://github.com/morkt/GARbro/issues/376.
     * images should be in `.S25` format so that the metadata is intact.
 * A lot of patience
