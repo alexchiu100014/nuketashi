@@ -1,3 +1,4 @@
+#[warn(clippy::all)]
 pub mod game;
 pub mod s25;
 pub mod script;

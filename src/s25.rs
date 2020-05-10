@@ -366,7 +366,7 @@ fn unpack_s25() {
 }
 
 #[test]
-fn unpack_s25_RCI_LL() {
+fn unpack_s25_rci_ll() {
     use std::io::BufWriter;
 
     let mut s25 = S25Archive::open("./blob/NUKITASHI_E2.WAR/RCI_LL.S25").unwrap();

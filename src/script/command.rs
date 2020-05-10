@@ -1,3 +1,5 @@
+//! Structure representations of nkts commands.
+
 pub struct LMont {
     pub layer: i32,
     pub path: String,
