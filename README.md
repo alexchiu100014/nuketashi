@@ -5,10 +5,12 @@ The aim of the project is to run ["Nukitashi"](https://qruppo.com/products/nukit
 ["Nukitashi 2"](https://qruppo.com/products/nukitashi2/) scripts (and hopefully other ShiinaRi*-based
 games) on other platforms, such as macOS, Linux, Android, etc...
 
+This is "experimental" i.e. quite far from the best.
+
+## Screenshots
+
 ![ikuko](assets/screenshot_ikuko.png)
 https://qruppo.com/
-
-This is "experimental" i.e. quite far from the best.
 
 ## Prerequisites
 
@@ -35,3 +37,14 @@ a PoC for a script play-back using [Piston](https://github.com/PistonDevelopers/
 ditch Piston later and replace it with a Vulkan/winit-based engine, for the better compability and the portability.
 
 We have no clue to *.SCR files, which seem to be responsible for the screen layout.
+
+## Disclaimer
+
+This project is not affiliated to Qruppo, nor the developer(s) of ShiinaRio,
+and is solely for educational and informational purposes.
+
+## License
+
+Copyright (c) 2020 Hikaru Terazono. All rights reserved.
+
+For licensing, contact [me](mailto:3c1u@vulpesgames.tokyo).
