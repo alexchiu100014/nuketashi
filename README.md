@@ -5,6 +5,9 @@ The aim of the project is to run ["Nukitashi"](https://qruppo.com/products/nukit
 ["Nukitashi 2"](https://qruppo.com/products/nukitashi2/) scripts (and hopefully other ShiinaRi*-based
 games) on other platforms, such as macOS, Linux, Android, etc...
 
+![ikuko](assets/screenshot_ikuko.png)
+https://qruppo.com/
+
 This is "experimental" i.e. quite far from the best.
 
 ## Prerequisites
