@@ -1,8 +1,11 @@
+pub mod shaders;
+
 // vulkano; Vulkan rapper
 use vulkano::device::{Device, DeviceExtensions, Queue};
-use vulkano::instance::{ApplicationInfo, Instance, PhysicalDevice, QueueFamily};
-use vulkano::swapchain::Surface;
-
+use vulkano::instance::{ApplicationInfo, Instance, PhysicalDevice};
+use vulkano::swapchain::{
+    ColorSpace, FullscreenExclusive, PresentMode, Surface, SurfaceTransform, Swapchain,
+};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
@@ -19,6 +22,7 @@ pub struct Game<'a> {
 }
 
 lazy_static! {
+    // VkInstance should be created once.
     static ref VK_INSTANCE: Arc<Instance> = create_vulkan_instance();
 }
 
@@ -93,7 +97,27 @@ impl Game<'static> {
 
         let physical = Self::create_physical();
         let surface = Self::create_window(&event_loop);
-        let (device, queues) = Self::create_device(physical, &surface);
+        let (device, graphical_queue, transfer_queue) = Self::create_device(physical, &surface);
+
+        let caps = surface.capabilities(physical).unwrap();
+
+        let (swapchain, image) = Swapchain::new(
+            device.clone(),
+            surface.clone(),
+            caps.min_image_count,
+            caps.supported_formats[0].0,
+            surface.window().inner_size().into(),
+            1,
+            caps.supported_usage_flags,
+            &graphical_queue,
+            SurfaceTransform::Identity,
+            caps.supported_composite_alpha.iter().next().unwrap(),
+            PresentMode::Fifo,
+            FullscreenExclusive::Default,
+            true,
+            ColorSpace::SrgbNonLinear,
+        )
+        .expect("failed to create a swapchain");
 
         Game {
             physical,
@@ -154,19 +178,17 @@ impl<'a> Game<'a> {
     fn create_device<T>(
         physical: PhysicalDevice,
         surface: &Surface<T>,
-    ) -> (Arc<Device>, Arc<Queue>) {
-        // graphical queue
+    ) -> (Arc<Device>, Arc<Queue>, Arc<Queue>) {
         let gr_queue_family = physical
             .queue_families()
-            .find(|&q| q.supports_graphics())
+            .find(|&q| q.supports_graphics() && surface.is_supported(q).unwrap_or(false))
             .expect("failed to find a graphical queue family");
 
-        let pr_queue_family = physical
+        let tr_queue_family = physical
             .queue_families()
             .find(|&q| {
-                q.supports_graphics()
-                    && surface.is_supported(q).unwrap_or(false)
-                    && gr_queue_family != q
+                (q.supports_graphics() || q.supports_compute()) // VK_QUEUE_TRANSFER_BIT
+                && gr_queue_family != q // no overlap
             })
             .expect("failed to find a presentation queue family");
 
@@ -179,7 +201,7 @@ impl<'a> Game<'a> {
             physical,
             physical.supported_features(),
             &extensions,
-            [(gr_queue_family, 1.0), (pr_queue_family, 0.5)]
+            [(gr_queue_family, 1.0), (tr_queue_family, 0.5)]
                 .iter()
                 .cloned(),
         )
@@ -187,11 +209,11 @@ impl<'a> Game<'a> {
 
         // graphics queue and transfer queue
         let gq = q.next().unwrap();
-        let pq = q.next().unwrap();
+        let tq = q.next().unwrap();
 
         log::debug!("created device and queue");
 
-        (d, gq)
+        (d, gq, tq)
     }
 }
 

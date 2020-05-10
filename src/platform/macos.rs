@@ -3,7 +3,7 @@
 // TODO: localize
 
 use cocoa::appkit::{NSApp, NSApplication, NSEventModifierFlags, NSMenu, NSMenuItem};
-use cocoa::base::{nil};
+use cocoa::base::nil;
 use cocoa::foundation::{NSAutoreleasePool, NSString, NSUInteger};
 
 use objc::*;
@@ -20,7 +20,7 @@ pub(crate) unsafe fn create_menu_bar() {
     let app = NSApp();
 
     let menubar = NSMenu::new(nil).autorelease();
-    
+
     let app_menu_item = NSMenuItem::new(nil).autorelease();
     let file_menu_item = NSMenuItem::new(nil).autorelease();
     let window_menu_item = NSMenuItem::new(nil).autorelease();
@@ -60,18 +60,21 @@ pub(crate) unsafe fn create_menu_bar() {
         .autorelease();
 
     hide_others.setKeyEquivalentModifierMask_(
-        NSEventModifierFlags::from_bits(NSEventModifierFlagOption | NSEventModifierFlagCommand).unwrap(),
+        NSEventModifierFlags::from_bits(NSEventModifierFlagOption | NSEventModifierFlagCommand)
+            .unwrap(),
     );
 
     app_menu.addItem_(hide_others);
 
-    app_menu.addItem_(NSMenuItem::alloc(nil)
-    .initWithTitle_action_keyEquivalent_(
-        NSString::alloc(nil).init_str("すべてを表示\0"),
-        sel![unhideAllApplications:],
-        NSString::alloc(nil).init_str("\0"),
-    )
-    .autorelease());
+    app_menu.addItem_(
+        NSMenuItem::alloc(nil)
+            .initWithTitle_action_keyEquivalent_(
+                NSString::alloc(nil).init_str("すべてを表示\0"),
+                sel![unhideAllApplications:],
+                NSString::alloc(nil).init_str("\0"),
+            )
+            .autorelease(),
+    );
 
     app_menu.addItem_(NSMenuItem::separatorItem(nil).autorelease());
 
@@ -86,7 +89,7 @@ pub(crate) unsafe fn create_menu_bar() {
     let services_menu = NSMenu::new(nil).autorelease();
     let _: () = msg_send![app, setServicesMenu: services_menu];
     services.setSubmenu_(services_menu);
-    
+
     app_menu.addItem_(services);
 
     app_menu.addItem_(NSMenuItem::separatorItem(nil).autorelease());
