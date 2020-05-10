@@ -87,7 +87,7 @@ impl Game<'static> {
 
         #[cfg(target_os = "macos")]
         unsafe {
-            // platform-specific
+            // Create a menu-bar for macOS.
             crate::platform::macos::create_menu_bar();
         }
 
