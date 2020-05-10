@@ -11,9 +11,10 @@ encoding_rs = "0.8.22"
 failure = "0.1.8"
 log = "0.4.8"
 simplelog = "0.7.6"
-png = "0.16.3"
-piston_window = "0.108.0"
 lazy_static = "1.4.0"
-image = "0.23.4"
-# workaround for BackendSpecificError { description: "core foundation unexpectedly returned null string" }
-rodio = { git = "https://github.com/RustAudio/rodio" }
+winit = "0.22.1"
+vulkano = "0.18.0"
+vulkano-win = "0.18.0"
+
+[dev-dependencies]
+png = "0.16.3"

@@ -40,10 +40,10 @@ pub struct Draw {
 // Flush all draw calls and fade into the next frame
 // with overlay.
 pub struct DrawEx {
-    pub num1: i32, // 0 or 2, blending option?
+    pub num1: i32,            // 0 or 2, blending option?
     pub path: Option<String>, // .S25 file. optional
-    pub duration: i32, // duration of effect?
-    pub flag: i32, // 0 or 1, 
+    pub duration: i32,        // duration of effect?
+    pub flag: i32,            // 0 or 1,
 }
 
 pub struct Wait {
