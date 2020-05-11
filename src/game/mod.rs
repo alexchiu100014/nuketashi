@@ -1,4 +1,5 @@
 pub mod shaders;
+pub mod texture_loader;
 
 // vulkano; Vulkan rapper
 use vulkano::device::{Device, DeviceExtensions, Queue};

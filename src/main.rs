@@ -1,9 +1,9 @@
 #![warn(clippy::all)]
 
 pub mod constants;
+pub mod format;
 pub mod game;
 pub mod platform;
-pub mod s25;
 pub mod script;
 
 fn main() {
