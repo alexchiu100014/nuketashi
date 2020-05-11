@@ -5,6 +5,7 @@ pub mod format;
 pub mod game;
 pub mod platform;
 pub mod script;
+pub mod utils;
 
 fn main() {
     #[cfg(debug_assertions)]

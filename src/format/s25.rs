@@ -5,6 +5,8 @@ use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::path::Path;
 
+use crate::utils;
+
 use failure::Fail;
 
 const S25_MAGIC: &[u8; 4] = b"S25\0";
@@ -33,18 +35,6 @@ impl From<std::io::Error> for Error {
     }
 }
 
-fn read_i16<R: Read>(mut reader: R) -> std::io::Result<i16> {
-    let mut buf = 0_i16.to_le_bytes();
-    reader.read_exact(&mut buf)?;
-    Ok(i16::from_le_bytes(buf))
-}
-
-fn read_i32<R: Read>(mut reader: R) -> std::io::Result<i32> {
-    let mut buf = 0_i32.to_le_bytes();
-    reader.read_exact(&mut buf)?;
-    Ok(i32::from_le_bytes(buf))
-}
-
 impl S25Archive<File> {
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
@@ -58,7 +48,7 @@ impl S25Archive<File> {
             return Err(Error::InvalidArchive);
         }
 
-        let total_entries = read_i32(&mut file)?;
+        let total_entries = utils::read_i32(&mut file)?;
 
         let mut entries = vec![];
 
@@ -89,7 +79,7 @@ impl<'a> S25Archive<std::io::Cursor<&'a [u8]>> {
             return Err(Error::InvalidArchive);
         }
 
-        let total_entries = read_i32(&mut file)?;
+        let total_entries = utils::read_i32(&mut file)?;
 
         let mut entries = vec![];
 
@@ -145,11 +135,11 @@ where
 
         self.file.seek(SeekFrom::Start(offset as u64))?;
 
-        let width = read_i32(&mut self.file)?;
-        let height = read_i32(&mut self.file)?;
-        let offset_x = read_i32(&mut self.file)?;
-        let offset_y = read_i32(&mut self.file)?;
-        let incremental = 0 != (read_i32(&mut self.file)? as u32 & 0x80000000);
+        let width = utils::read_i32(&mut self.file)?;
+        let height = utils::read_i32(&mut self.file)?;
+        let offset_x = utils::read_i32(&mut self.file)?;
+        let offset_y = utils::read_i32(&mut self.file)?;
+        let incremental = 0 != (utils::read_i32(&mut self.file)? as u32 & 0x80000000);
 
         Ok(S25ImageMetadata {
             width,
@@ -184,7 +174,7 @@ where
         // non-incrementalな画像エントリーをロードする
         let mut rows = Vec::with_capacity(metadata.height as usize);
         for _ in 0..metadata.height {
-            rows.push(read_i32(&mut self.file)? as u32);
+            rows.push(utils::read_i32(&mut self.file)? as u32);
         }
 
         let mut offset = 0;
@@ -193,7 +183,7 @@ where
         // すべての行を走査してデコードしていく
         for row_offset in rows {
             self.file.seek(SeekFrom::Start(row_offset as u64))?;
-            let row_length = read_i16(&mut self.file)? as u16;
+            let row_length = utils::read_i16(&mut self.file)? as u16;
 
             let row_length = if row_offset & 0x01 != 0 {
                 self.file.read_exact(&mut [0u8])?; // 1バイトだけ読み飛ばす
