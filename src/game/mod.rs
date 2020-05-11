@@ -1,4 +1,6 @@
 pub mod shaders;
+pub mod pipeline;
+pub mod text;
 pub mod texture_loader;
 
 // vulkano; Vulkan rapper
@@ -232,6 +234,9 @@ impl<'a> Game<'a> {
                     ..
                 } => {
                     *control_flow = ControlFlow::Exit;
+                }
+                Event::RedrawRequested(_) => {
+                    // self.perform_draw();
                 }
                 _ => {
                     // do nothing

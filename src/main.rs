@@ -9,15 +9,16 @@ pub mod script;
 fn main() {
     #[cfg(debug_assertions)]
     {
-        // Loggerの割り当て
         use simplelog::*;
-        CombinedLogger::init(vec![TermLogger::new(
+
+        if let Some(logger) = TermLogger::new(
             LevelFilter::Debug,
             Config::default(),
             TerminalMode::Mixed,
-        )
-        .unwrap()])
-        .unwrap();
+        ) {
+            // workaround for the OSX bundle
+            let _ = CombinedLogger::init(vec![logger]);
+        }
     }
 
     log::debug!("？？？「幾重にも辛酸を舐め、七難八苦を超え、艱難辛苦の果て、満願成就に至る——」");
