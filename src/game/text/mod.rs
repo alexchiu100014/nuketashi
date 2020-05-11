@@ -6,9 +6,8 @@ use rusttype::{point, Font, Scale};
 use lazy_static::*;
 
 lazy_static! {
-    static ref _FONT: Font<'static> = {
-        Font::try_from_bytes(FONT_BYTES).expect("error constructing a Font from bytes")
-    };
+    static ref _FONT: Font<'static> =
+        { Font::try_from_bytes(FONT_BYTES).expect("error constructing a Font from bytes") };
 }
 
 pub fn create_font() -> &'static Font<'static> {
@@ -25,7 +24,9 @@ pub fn write_text_in_box(
     text: &str,
     (width, height): (usize, usize),
     mono_buffer: &mut [u8],
-) {
+) -> Vec<(i32, i32, i32, i32)> {
+    let mut bounding_box = Vec::new();
+
     let scale = Scale {
         x: font_height,
         y: font_height,
@@ -80,23 +81,30 @@ pub fn write_text_in_box(
                 *x = new_x;
                 Some(Some(g.positioned(point(old_x, *y))))
             }
-        })
-        .filter_map(|v| v);
+        });
 
     for g in layout {
-        if let Some(bb) = g.pixel_bounding_box() {
-            g.draw(|x, y, v| {
-                let x = x as i32 + bb.min.x;
-                let y = y as i32 + bb.min.y;
+        if let Some(g) = g {
+            if let Some(bb) = g.pixel_bounding_box() {
+                bounding_box.push((bb.min.x, bb.min.y, bb.max.x - bb.min.x, bb.max.y - bb.min.y));
 
-                if x >= 0 && x < width as i32 && y >= 0 && y < height as i32 {
-                    let x = x as usize;
-                    let y = y as usize;
-                    mono_buffer[x + y * width] = (v * 255.0).min(255.0) as u8;
-                }
-            });
+                g.draw(|x, y, v| {
+                    let x = x as i32 + bb.min.x;
+                    let y = y as i32 + bb.min.y;
+
+                    if x >= 0 && x < width as i32 && y >= 0 && y < height as i32 {
+                        let x = x as usize;
+                        let y = y as usize;
+                        mono_buffer[x + y * width] = (v * 255.0).min(255.0) as u8;
+                    }
+                });
+            }
+        } else {
+            bounding_box.push((0, 0, 0, 0));
         }
     }
+
+    bounding_box
 }
 
 // from https://gitlab.redox-os.org/redox-os/rusttype/-/blob/master/dev/examples/ascii.rs
