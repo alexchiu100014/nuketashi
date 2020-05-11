@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read};
 
 use std::path::{Path, PathBuf};
-use crate::script::fautotbl;
+use crate::format::fautotbl;
 
 // Draw calls that will be sent to the graphics engine
 #[derive(Debug, Clone)]
