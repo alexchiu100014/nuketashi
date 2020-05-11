@@ -3,13 +3,26 @@
 use crate::constants::FONT_BYTES;
 use rusttype::{point, Font, Scale};
 
+use lazy_static::*;
+
+lazy_static! {
+    static ref _FONT: Font<'static> = {
+        let font = include_bytes!("../../../blob/NUKITASHI_D.WAR/ROUNDED-X-MGENPLUS-1M.TTF");
+        Font::try_from_bytes(font).expect("error constructing a Font from bytes")
+    };
+}
+
+pub fn create_font() -> &'static Font<'static> {
+    &*_FONT
+}
+
 pub fn write_text_in_box(
     font: &Font,
+    font_height: f32,
     text: &str,
     (width, height): (usize, usize),
     mono_buffer: &mut [u8],
 ) {
-    let font_height = 24.0;
     let scale = Scale {
         x: font_height,
         y: font_height,
@@ -33,24 +46,21 @@ pub fn write_text_in_box(
             }
 
             let w = g.h_metrics().advance_width;
-            let next = g.positioned(point(*x, *y));
-
             let new_x = *x + w;
-            let gw = next
-                .pixel_bounding_box()
-                .map(|r| (r.max - r.min).x)
-                .unwrap_or(0) as f32;
 
-            if (new_x + gw) >= fwidth {
-                *last = None;
-                *x = 0.0;
+            *last = Some(g.id());
+
+            if new_x > fwidth {
+                *x = w;
                 *y += font_height;
-            } else {
-                *x = new_x;
-                *last = Some(next.id());
-            }
+                *last = None;
 
-            Some(next)
+                Some(g.positioned(point(0.0, *y)))
+            } else {
+                let old_x = *x;
+                *x = new_x;
+                Some(g.positioned(point(old_x, *y)))
+            }
         });
 
     for g in layout {
@@ -82,8 +92,8 @@ fn draw_sample_text() {
         Font::try_from_bytes(font).expect("error constructing a Font from bytes")
     };
 
-    let width = 200;
-    let height = 100;
+    let width = 300;
+    let height = 200;
 
     let path = Path::new(r"./test/harameora.png");
     let file = File::create(path).unwrap();
@@ -92,6 +102,7 @@ fn draw_sample_text() {
     let mut buf = vec![0u8; width * height];
     write_text_in_box(
         &font,
+        48.0,
         "桐香「ズコバコズコバコ孕めオラ〜♪」Touka \"zuko-bako zuko-bako harame-ora~!\" Touka \"zuko-bako zuko-bako harame-ora~!\"",
         (width, height),
         &mut buf,
