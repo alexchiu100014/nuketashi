@@ -7,13 +7,16 @@ use lazy_static::*;
 
 lazy_static! {
     static ref _FONT: Font<'static> = {
-        let font = include_bytes!("../../../blob/NUKITASHI_D.WAR/ROUNDED-X-MGENPLUS-1M.TTF");
-        Font::try_from_bytes(font).expect("error constructing a Font from bytes")
+        Font::try_from_bytes(FONT_BYTES).expect("error constructing a Font from bytes")
     };
 }
 
 pub fn create_font() -> &'static Font<'static> {
     &*_FONT
+}
+
+enum ControlCharacter {
+    LineFeed,
 }
 
 pub fn write_text_in_box(
@@ -32,13 +35,29 @@ pub fn write_text_in_box(
     let v_metrics = font.v_metrics(scale);
 
     // generate a layout
-    let layout = font
-        .glyphs_for(text.chars())
-        .scan((None, 0.0, v_metrics.ascent), |state, g| {
+    let layout = text
+        .chars()
+        .map(|c| match c {
+            '\n' => (Some(ControlCharacter::LineFeed), None),
+            c => (None, Some(font.glyph(c))),
+        })
+        .scan((None, 0.0, v_metrics.ascent), |state, (c, g)| {
             let last = &mut state.0;
             let x = &mut state.1;
             let y = &mut state.2;
 
+            match c {
+                Some(ControlCharacter::LineFeed) => {
+                    *x = 0.0;
+                    *y += font_height;
+                    *last = None;
+
+                    return Some(None);
+                }
+                _ => {}
+            }
+
+            let g = g.unwrap();
             let g = g.scaled(scale);
 
             if let Some(last) = last {
@@ -55,13 +74,14 @@ pub fn write_text_in_box(
                 *y += font_height;
                 *last = None;
 
-                Some(g.positioned(point(0.0, *y)))
+                Some(Some(g.positioned(point(0.0, *y))))
             } else {
                 let old_x = *x;
                 *x = new_x;
-                Some(g.positioned(point(old_x, *y)))
+                Some(Some(g.positioned(point(old_x, *y))))
             }
-        });
+        })
+        .filter_map(|v| v);
 
     for g in layout {
         if let Some(bb) = g.pixel_bounding_box() {
@@ -103,7 +123,7 @@ fn draw_sample_text() {
     write_text_in_box(
         &font,
         48.0,
-        "桐香「ズコバコズコバコ孕めオラ〜♪」Touka \"zuko-bako zuko-bako harame-ora~!\" Touka \"zuko-bako zuko-bako harame-ora~!\"",
+        "桐香「ズコバコズコバコ孕めオラ〜♪」\nTouka \"zuko-bako zuko-bako harame-ora~!\" Touka \"zuko-bako zuko-bako harame-ora~!\"",
         (width, height),
         &mut buf,
     );
