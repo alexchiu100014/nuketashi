@@ -1,4 +1,4 @@
-# nkts command specification
+# Commands
 
 All assumed by the actual play & the syntax. No guarantee to be accurate.
 
@@ -13,15 +13,31 @@ CmdName(A1, A2, A3, ...)
 
 ## `AChr`
 
-### 02 `BOUNCE`: `AChr(02, L, X, Y, D)`
+### 01 `BOUNCE_X`: `AChr(02, L, N, DX, D)`
 
-The bounce effect. Move to (X, Y) and move back to the original position.
+The bounce effect. Move by (DX, 0) and move back to the original position.
+The total duration of the animation is `D * N`.
 
 **TODO: move behaviour**
 
 #### Parameters
 - `L` : layer to fade
-- `X, Y` : position
+- `N` : total bounces
+- `DX` : position
+- `D` : duration (in milliseconds)
+
+
+### 02 `BOUNCE_Y`: `AChr(02, L, N, DY, D)`
+
+The bounce effect. Move by (0, DY) and move back to the original position.
+The total duration of the animation is `D * N`.
+
+**TODO: move behaviour**
+
+#### Parameters
+- `L` : layer to fade
+- `N` : total bounces
+- `DY` : position
 - `D` : duration (in milliseconds)
 
 ### 06 `_`: `AChr(06, N1, N2, N3, N4)`
@@ -222,13 +238,30 @@ Displays the specified image on the specified layer at (X, Y).
 - `X, Y` : position
 - `E` : unknown; probably entry number of the image
 
+### `LDelay(L, 'T', D)`
+
+#### Syntax
+```
+LDelay(L, 'T', D)`
+```
+
+#### Behaviour
+
+Delay the animation queue of the layer. 
+
+(If L = 0, all events are delayed?)
+
+#### Paramters
+- `L` : layer
+- `D` : duration
+
 ## `LMont`
 
 ### `LMont(L, P, 'm', PL1, PL2...)`
 
 #### Syntax
 ```
-Face(L, P, X, Y, N1, 'm', PL1, PL2...)
+LMont(L, P, X, Y, N1, 'm', PL1, PL2...)
 ```
 
 #### Behaviour
