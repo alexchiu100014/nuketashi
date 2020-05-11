@@ -11,11 +11,9 @@ fn main() {
     {
         use simplelog::*;
 
-        if let Some(logger) = TermLogger::new(
-            LevelFilter::Debug,
-            Config::default(),
-            TerminalMode::Mixed,
-        ) {
+        if let Some(logger) =
+            TermLogger::new(LevelFilter::Debug, Config::default(), TerminalMode::Mixed)
+        {
             // workaround for the OSX bundle
             let _ = CombinedLogger::init(vec![logger]);
         }
