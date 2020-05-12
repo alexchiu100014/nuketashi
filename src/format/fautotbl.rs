@@ -1,5 +1,5 @@
-use std::path::Path;
 use std::io::{BufReader, Read};
+use std::path::Path;
 
 pub fn load_face_map<P: AsRef<Path>>(path: P) -> std::io::Result<(Vec<String>, Vec<String>)> {
     use encoding_rs::SHIFT_JIS;

@@ -1,3 +1,4 @@
+pub mod instance;
 pub mod pipeline;
 pub mod shaders;
 pub mod text;
@@ -13,7 +14,6 @@ use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
 
-use lazy_static::*;
 use std::sync::Arc;
 
 use crate::constants;
@@ -22,60 +22,7 @@ pub struct Game<'a> {
     physical: PhysicalDevice<'a>,
     event_loop: EventLoop<()>,
     surface: Arc<Surface<Window>>,
-}
-
-lazy_static! {
-    // VkInstance should be created once.
-    static ref VK_INSTANCE: Arc<Instance> = create_vulkan_instance();
-}
-
-fn create_vulkan_instance() -> Arc<Instance> {
-    let extensions = vulkano_win::required_extensions();
-
-    #[cfg(debug_assertions)]
-    let available_layers;
-    let layers;
-
-    #[cfg(debug_assertions)]
-    {
-        // create the validation layer
-        available_layers = vulkano::instance::layers_list()
-            .expect("failed to obtain supported layers")
-            .find(|l| l.name() == "VK_LAYER_KHRONOS_validation");
-
-        layers = available_layers.as_ref().map(|l| l.name());
-
-        if let Some(l) = layers {
-            log::debug!("validation layer ({}) supported and enabled", l);
-        } else {
-            log::warn!("validation layer not supported");
-        }
-    }
-
-    #[cfg(not(debug_assertions))]
-    {
-        layers = None;
-    }
-
-    log::debug!("creating Vulkan instance");
-
-    Instance::new(Some(&application_info()), &extensions, layers)
-        .expect("failed to create Vulkan interface")
-}
-
-fn application_info() -> ApplicationInfo<'static> {
-    use vulkano::instance::Version;
-
-    ApplicationInfo {
-        // ReizeiinTouka; ShiinaRio-script compatible engine.
-        engine_name: Some("ReizeiinTouka".into()),
-        engine_version: Some(Version {
-            major: 2,
-            minor: 50,
-            patch: 0,
-        }),
-        ..vulkano::app_info_from_cargo_toml!()
-    }
+    swapchain: Arc<Swapchain<Window>>,
 }
 
 impl Game<'static> {
@@ -126,6 +73,7 @@ impl Game<'static> {
             physical,
             event_loop,
             surface,
+            swapchain,
         }
     }
 }
@@ -133,9 +81,7 @@ impl Game<'static> {
 // -- Initialization
 impl<'a> Game<'a> {
     fn create_physical() -> PhysicalDevice<'static> {
-        // Create an Vulkan instance by dereferencing VK_INSTANCE,
-        // which is 'static (using lazy_static!).
-        let instance = &*VK_INSTANCE;
+        let instance = instance::get_instance();
 
         // Obtain a physical device.
         // Note that a PhysicalDevice is bound to the reference of the instance,
@@ -156,7 +102,7 @@ impl<'a> Game<'a> {
         use winit::dpi::LogicalSize;
 
         let window = WindowBuilder::new()
-            .with_title(constants::GAME_ENGINE_NAME)
+            .with_title(constants::GAME_ENGINE_FULL_NAME)
             .with_inner_size(LogicalSize {
                 width: constants::GAME_WINDOW_WIDTH,
                 height: constants::GAME_WINDOW_HEIGHT,
@@ -170,7 +116,7 @@ impl<'a> Game<'a> {
             constants::GAME_WINDOW_HEIGHT
         );
 
-        let surface = vulkano_win::create_vk_surface(window, VK_INSTANCE.clone())
+        let surface = vulkano_win::create_vk_surface(window, instance::get_instance().clone())
             .expect("failed to build Vulkan surface");
 
         log::debug!("created Vulkan surface");

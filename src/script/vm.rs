@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read};
 
-use std::path::{Path, PathBuf};
 use crate::format::fautotbl;
+use std::path::{Path, PathBuf};
 
 // Draw calls that will be sent to the graphics engine
 #[derive(Debug, Clone)]
@@ -78,31 +78,52 @@ pub struct Vm<R> {
     pub face_map: HashMap<String, String>,
 }
 
+// constructor
+impl<R> Vm<R>
+where
+    R: Read,
+{
+    pub fn new(reader: R) -> Self {
+        Self {
+            reader: BufReader::new(reader),
+            draw_calls: vec![],
+            effect_queue: vec![],
+            face_map: Default::default(),
+        }
+    }
+}
+
 // script parser
 impl<R> Vm<R>
 where
     R: Read,
 {
-    pub fn load_command_until_wait(&mut self) -> std::io::Result<()> {
+    pub fn load_command_until_wait(&mut self) -> std::io::Result<bool> {
         let mut buf = String::new();
         let mut dialogue_buffer: Vec<String> = vec![];
 
         loop {
             if self.reader.read_line(&mut buf)? == 0 {
-                // end-of-line
-                break;
+                // end-of-file
+                return Ok(false);
             }
 
             let cmd = buf.trim_end_matches(|p| p == '\n' || p == '\r');
 
             if cmd.is_empty() && !dialogue_buffer.is_empty() {
                 // flush draw command and display the dialouge
+                println!("flush draw command: {:?}", self.draw_calls);
+
+                println!("flush dialogue: {:?}", dialogue_buffer);
+                dialogue_buffer.clear();
+
+                break;
             }
 
             if cmd.starts_with('$') {
                 // run command
                 self.visit_command(cmd);
-            } else if !cmd.starts_with(';') {
+            } else if !cmd.is_empty() && !cmd.starts_with(';') {
                 // queue dialogue
                 dialogue_buffer.push(cmd.to_owned());
             }
@@ -110,7 +131,7 @@ where
             buf.clear();
         }
 
-        Ok(())
+        Ok(true)
     }
 }
 
@@ -132,6 +153,8 @@ impl<R> Vm<R> {
     fn visit_command(&mut self, command: &str) {
         let command: Vec<_> = command.split(',').collect();
 
+        println!("command: {:?}", command);
+
         match command[0] {
             "$FACE" => {}
             _ => {}
@@ -139,6 +162,6 @@ impl<R> Vm<R> {
     }
 
     fn _send_draw_call(&mut self, call: DrawCall) {
-        println!("{:?}", call);
+        println!("draw call: {:?}", call);
     }
 }
