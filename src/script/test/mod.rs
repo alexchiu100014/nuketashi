@@ -1,6 +1,6 @@
 use crate::script::vm::Vm;
-use std::io::Cursor;
 use encoding_rs::SHIFT_JIS;
+use std::io::Cursor;
 
 #[test]
 fn parse_script() {

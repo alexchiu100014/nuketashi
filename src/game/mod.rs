@@ -1,4 +1,5 @@
 pub mod instance;
+pub mod layer;
 pub mod pipeline;
 pub mod shaders;
 pub mod text;
@@ -6,7 +7,8 @@ pub mod texture_loader;
 
 // vulkano; Vulkan rapper
 use vulkano::device::{Device, DeviceExtensions, Queue};
-use vulkano::instance::{ApplicationInfo, Instance, PhysicalDevice};
+use vulkano::image::swapchain::SwapchainImage;
+use vulkano::instance::PhysicalDevice;
 use vulkano::swapchain::{
     ColorSpace, FullscreenExclusive, PresentMode, Surface, SurfaceTransform, Swapchain,
 };
@@ -19,10 +21,11 @@ use std::sync::Arc;
 use crate::constants;
 
 pub struct Game<'a> {
-    physical: PhysicalDevice<'a>,
-    event_loop: EventLoop<()>,
-    surface: Arc<Surface<Window>>,
-    swapchain: Arc<Swapchain<Window>>,
+    pub physical: PhysicalDevice<'a>,
+    pub event_loop: EventLoop<()>,
+    pub surface: Arc<Surface<Window>>,
+    pub swapchain: Arc<Swapchain<Window>>,
+    pub images: Vec<Arc<SwapchainImage<Window>>>,
 }
 
 impl Game<'static> {
@@ -51,7 +54,7 @@ impl Game<'static> {
 
         let caps = surface.capabilities(physical).unwrap();
 
-        let (swapchain, image) = Swapchain::new(
+        let (swapchain, images) = Swapchain::new(
             device.clone(),
             surface.clone(),
             caps.min_image_count,
@@ -74,6 +77,7 @@ impl Game<'static> {
             event_loop,
             surface,
             swapchain,
+            images,
         }
     }
 }
