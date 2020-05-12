@@ -1,6 +1,6 @@
 use lazy_static::*;
 use std::sync::Arc;
-use vulkano::instance::{ApplicationInfo, Instance, PhysicalDevice};
+use vulkano::instance::{ApplicationInfo, Instance};
 
 use crate::constants;
 

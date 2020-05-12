@@ -1,7 +1,7 @@
 //! Shaders for layer with overlay
 
 pub mod vs {
-    vulkano_shaders::shader!{
+    vulkano_shaders::shader! {
         ty: "vertex",
         src: "
         #version 450
@@ -23,7 +23,7 @@ pub mod vs {
 }
 
 pub mod fs {
-    vulkano_shaders::shader!{
+    vulkano_shaders::shader! {
         ty: "fragment",
         src: "
         #version 450

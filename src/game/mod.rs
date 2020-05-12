@@ -22,10 +22,13 @@ use crate::constants;
 
 pub struct Game<'a> {
     pub physical: PhysicalDevice<'a>,
+    pub device: Arc<Device>,
     pub event_loop: EventLoop<()>,
     pub surface: Arc<Surface<Window>>,
     pub swapchain: Arc<Swapchain<Window>>,
     pub images: Vec<Arc<SwapchainImage<Window>>>,
+    pub graphical_queue: Arc<Queue>,
+    pub transfer_queue: Arc<Queue>,
 }
 
 impl Game<'static> {
@@ -74,10 +77,13 @@ impl Game<'static> {
 
         Game {
             physical,
+            device,
             event_loop,
             surface,
             swapchain,
             images,
+            graphical_queue,
+            transfer_queue,
         }
     }
 }

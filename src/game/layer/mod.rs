@@ -1,17 +1,21 @@
+use vulkano::buffer::{BufferUsage, ImmutableBuffer};
+use vulkano::command_buffer::{
+    pool::standard::StandardCommandPoolAlloc, AutoCommandBuffer, AutoCommandBufferBuilder,
+    CommandBufferExecFuture, DynamicState,
+};
 use vulkano::descriptor::descriptor_set::{DescriptorSet, PersistentDescriptorSet};
+use vulkano::descriptor::PipelineLayoutAbstract;
 use vulkano::device::Queue;
 use vulkano::format::Format;
 use vulkano::image::ImmutableImage;
+use vulkano::pipeline::{vertex::VertexSource, GraphicsPipeline, GraphicsPipelineAbstract};
+use vulkano::sampler::{Filter, MipmapMode, Sampler, SamplerAddressMode};
 use vulkano::sync::NowFuture;
 
 use std::sync::Arc;
 
 use crate::format::s25::{S25Archive, S25Image};
 use crate::game::texture_loader;
-use vulkano::command_buffer::{
-    AutoCommandBuffer, AutoCommandBufferBuilder, CommandBufferExecFuture,
-};
-
 pub type Texture = Arc<ImmutableImage<Format>>;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -21,6 +25,14 @@ pub enum OverlayMode {
     Reverse,
 }
 
+#[derive(Default, Debug, Clone)]
+pub struct Vertex {
+    pub position: [f32; 2],
+    pub uv: [f32; 2],
+}
+
+vulkano::impl_vertex!(Vertex, position, uv);
+
 #[derive(Default)]
 pub struct PictLayer {
     pub entry_no: i32,
@@ -28,7 +40,20 @@ pub struct PictLayer {
     pub future: Option<CommandBufferExecFuture<NowFuture, AutoCommandBuffer>>,
     pub offset: (i32, i32),
     pub size: (i32, i32),
-    pub set: Option<Box<dyn DescriptorSet>>,
+    pub set: Option<Arc<dyn DescriptorSet + Sync + Send>>,
+    pub vertex_buffer: Option<Arc<ImmutableBuffer<[Vertex]>>>,
+    pub vtx_future:
+        Option<CommandBufferExecFuture<NowFuture, AutoCommandBuffer<StandardCommandPoolAlloc>>>,
+}
+
+fn point_at(x: i32, y: i32) -> [f32; 2] {
+    const W_COEF: f64 = 2.0 / (crate::constants::GAME_WINDOW_WIDTH as f64);
+    const H_COEF: f64 = 2.0 / (crate::constants::GAME_WINDOW_WIDTH as f64);
+
+    [
+        (x as f64 * W_COEF - 1.0) as f32,
+        (y as f64 * H_COEF - 1.0) as f32,
+    ]
 }
 
 impl PictLayer {
@@ -40,23 +65,109 @@ impl PictLayer {
     }
 
     // load pict-layer information onto GPU
-    pub fn load_gpu(&mut self, image: S25Image, load_queue: Arc<Queue>) {
+    pub fn load_gpu<Mv, L, Rp>(
+        &mut self,
+        image: S25Image,
+        load_queue: Arc<Queue>,
+        pipeline: Arc<GraphicsPipeline<Mv, L, Rp>>,
+    ) where
+        L: PipelineLayoutAbstract,
+    {
         // load image to GPU
+        let device = load_queue.device().clone();
 
         let offset = (image.metadata.offset_x, image.metadata.offset_y);
         let size = (image.metadata.width, image.metadata.height);
-        let (t, f) = texture_loader::load_s25_image(image, load_queue);
+        let (t, f) = texture_loader::load_s25_image(image, load_queue.clone());
 
-        self.texture = Some(t);
+        self.texture = Some(t.clone());
         self.future = Some(f);
         self.offset = offset;
         self.size = size;
 
+        let sampler = Sampler::new(
+            device,
+            Filter::Linear,
+            Filter::Linear,
+            MipmapMode::Nearest,
+            SamplerAddressMode::Repeat,
+            SamplerAddressMode::Repeat,
+            SamplerAddressMode::Repeat,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+        )
+        .unwrap();
+
         // load other information to GPU
+        let layout = pipeline.layout().descriptor_set_layout(0).unwrap();
+        let set = PersistentDescriptorSet::start(layout.clone())
+            .add_sampled_image(t, sampler)
+            .unwrap()
+            .build()
+            .unwrap();
+
+        self.set = Some(Arc::new(set));
+
+        let (vertex_buffer, vtx_future) = {
+            ImmutableBuffer::from_iter(
+                [
+                    Vertex {
+                        position: point_at(self.offset.0, self.offset.1),
+                        uv: [0.0, 0.0],
+                    },
+                    Vertex {
+                        position: point_at(self.offset.0, self.offset.1 + self.size.1),
+                        uv: [0.0, 1.0],
+                    },
+                    Vertex {
+                        position: point_at(self.offset.0 + self.size.0, self.offset.1),
+                        uv: [1.0, 0.0],
+                    },
+                    Vertex {
+                        position: point_at(
+                            self.offset.0 + self.size.0,
+                            self.offset.1 + self.size.1,
+                        ),
+                        uv: [1.0, 1.0],
+                    },
+                ]
+                .iter()
+                .cloned(),
+                BufferUsage::vertex_buffer(),
+                load_queue.clone(),
+            )
+            .unwrap()
+        };
+
+        self.vertex_buffer = Some(vertex_buffer);
+        self.vtx_future = Some(vtx_future);
     }
 
-    pub fn draw(&self, builder: AutoCommandBufferBuilder) -> AutoCommandBufferBuilder {
+    pub fn draw<P>(
+        &self,
+        builder: AutoCommandBufferBuilder,
+        pipeline: P,
+        dyn_state: &DynamicState,
+    ) -> AutoCommandBufferBuilder
+    where
+        P: GraphicsPipelineAbstract
+            + VertexSource<Arc<ImmutableBuffer<[Vertex]>>>
+            + Send
+            + Sync
+            + 'static
+            + Clone,
+    {
         builder
+            .draw(
+                pipeline,
+                dyn_state,
+                self.vertex_buffer.clone().unwrap(),
+                self.set.clone().unwrap(),
+                (),
+            )
+            .unwrap()
     }
 }
 
@@ -83,7 +194,14 @@ impl Layer {
         self.s25_archive = Some(s25);
     }
 
-    pub fn load_pict_layers(&mut self, pict_layers: &[i32], load_queue: Arc<Queue>) {
+    pub fn load_pict_layers<Mv, L, Rp>(
+        &mut self,
+        pict_layers: &[i32],
+        load_queue: Arc<Queue>,
+        pipeline: Arc<GraphicsPipeline<Mv, L, Rp>>,
+    ) where
+        L: PipelineLayoutAbstract,
+    {
         // match the length of pict layers
         self.pict_layers
             .resize_with(pict_layers.len(), PictLayer::empty);
@@ -110,7 +228,7 @@ impl Layer {
                     .expect("failed to load the image entry");
 
                 // load pict-layer information to GPU
-                pict_layer.load_gpu(img, load_queue.clone());
+                pict_layer.load_gpu(img, load_queue.clone(), pipeline.clone());
             }
         }
     }
@@ -135,15 +253,28 @@ impl Layer {
         self.overlay_mode = OverlayMode::Disabled;
     }
 
-    pub fn draw(&self, builder: AutoCommandBufferBuilder) -> AutoCommandBufferBuilder {
+    pub fn draw<P>(
+        &self,
+        builder: AutoCommandBufferBuilder,
+        pipeline: P,
+        dyn_state: &DynamicState,
+    ) -> AutoCommandBufferBuilder
+    where
+        P: GraphicsPipelineAbstract
+            + VertexSource<Arc<ImmutableBuffer<[Vertex]>>>
+            + Send
+            + Sync
+            + 'static
+            + Clone,
+    {
         let mut builder = builder;
 
         // let all the pict-layers draw
         for layer in &self.pict_layers {
-            builder = layer.draw(builder);
+            builder = layer.draw(builder, pipeline.clone(), dyn_state);
         }
 
-        // apply overlay
+        // TODO: apply overlay
 
         builder
     }
