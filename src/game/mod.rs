@@ -188,10 +188,12 @@ impl<'a> Game<'a> {
         use vulkano::command_buffer::AutoCommandBufferBuilder;
         use vulkano::pipeline::GraphicsPipeline;
         use vulkano::swapchain::{AcquireError, SwapchainCreationError};
-        use vulkano::sync::{GpuFuture, FlushError};
+        use vulkano::sync::{FlushError, GpuFuture};
 
-        use crate::game::layer::Layer;
         use crate::format::s25::S25Archive;
+        use crate::game::layer::Layer;
+
+        use std::time::Instant;
 
         let Game {
             physical: _,
@@ -203,11 +205,6 @@ impl<'a> Game<'a> {
             graphical_queue,
             transfer_queue: _,
         } = self;
-
-        let mut layer = Layer::default();
-        layer.load_s25(
-            S25Archive::open("./blob/NUKITASHI_G1.WAR/IKUKO_01M.s25").unwrap(),
-        );
 
         let render_pass = pipeline::create_render_pass(device.clone(), &swapchain);
 
@@ -242,7 +239,18 @@ impl<'a> Game<'a> {
             Some(Box::new(vulkano::sync::now(device.clone())) as Box<dyn GpuFuture>);
         let mut recreate_swapchain = false;
 
-        layer.load_pict_layers(&[1,6,2], graphical_queue.clone(), pipeline.clone());
+        let mut last_frame = Instant::now();
+        let mut total_frames = 0usize;
+
+        let mut layers = Vec::new();
+        layers.resize_with(1, || {
+            let mut l = Layer::default();
+            l.load_s25(S25Archive::open("./blob/NUKITASHI_G1.WAR/IKUKO_01M.s25").unwrap());
+            l.load_pict_layers(&[1, 6, 2], graphical_queue.clone(), pipeline.clone());
+            l
+        });
+
+        log::debug!("loaded all ikuko");
 
         event_loop.run(move |event, _evt_loop, control_flow| match event {
             Event::WindowEvent {
@@ -251,9 +259,29 @@ impl<'a> Game<'a> {
             } => {
                 *control_flow = ControlFlow::Exit;
             }
+            Event::WindowEvent {
+                event: WindowEvent::Resized(_),
+                ..
+            } => {
+                println!("resize");
+                recreate_swapchain = true;
+            }
             Event::RedrawRequested(_) => {
-                println!("redraw");
-                
+                surface.window().request_redraw();
+
+                let now = Instant::now();
+
+                if total_frames > 30 {
+                    log::debug!(
+                        "fps: {:.2}",
+                        (total_frames as f64) / (now - last_frame).as_secs_f64()
+                    );
+                    total_frames = 1;
+                    last_frame = now;
+                } else {
+                    total_frames += 1;
+                }
+
                 previous_frame_end.as_mut().unwrap().cleanup_finished();
 
                 if recreate_swapchain {
@@ -305,36 +333,39 @@ impl<'a> Game<'a> {
                 )
                 .unwrap();
 
-                let command_buffer = layer
-                    .draw(command_buffer, pipeline.clone(), &dynamic_state)
-                    .end_render_pass()
-                    .unwrap()
-                    .build()
-                    .unwrap();
+                let mut command_buffer = command_buffer;
+                for l in &mut layers {
+                    command_buffer = l
+                        .draw(command_buffer, pipeline.clone(), &dynamic_state);
+                }
 
-                let future = previous_frame_end
-                    .take()
-                    .unwrap()
-                    .join(acquire_future);
-                
-                let future = 
-                    layer.join_future(device.clone(), future)
+                let command_buffer = command_buffer.end_render_pass().unwrap().build().unwrap();
+
+                let future = previous_frame_end.take().unwrap().join(acquire_future);
+
+                let future = layers
+                    .iter_mut()
+                    .fold(Box::new(future) as Box<dyn GpuFuture>, |f, l| {
+                        l.join_future(device.clone(), f)
+                    })
                     .then_execute(graphical_queue.clone(), command_buffer)
                     .unwrap()
                     .then_swapchain_present(graphical_queue.clone(), swapchain.clone(), image_num)
                     .then_signal_fence_and_flush();
-    
+
                 match future {
                     Ok(future) => {
                         previous_frame_end = Some(Box::new(future) as Box<_>);
                     }
                     Err(FlushError::OutOfDate) => {
                         recreate_swapchain = true;
-                        previous_frame_end = Some(Box::new(vulkano::sync::now(device.clone())) as Box<_>);
+                        previous_frame_end =
+                            Some(Box::new(vulkano::sync::now(device.clone())) as Box<_>);
                     }
                     Err(e) => {
                         println!("Failed to flush future: {:?}", e);
-                        previous_frame_end = Some(Box::new(vulkano::sync::now(device.clone())) as Box<_>);
+                        previous_frame_end =
+                            Some(Box::new(vulkano::sync::now(device.clone())) as Box<_>);
                     }
                 }
             }

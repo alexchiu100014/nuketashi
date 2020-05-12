@@ -193,6 +193,10 @@ impl PictLayer {
             future.join(Box::new(vulkano::sync::now(device)) as Box<dyn GpuFuture>)
         }
     }
+
+    pub fn has_future(&self) -> bool {
+        self.vtx_future.is_some() || self.future.is_some()
+    }
 }
 
 #[derive(Default)]
@@ -308,19 +312,22 @@ impl Layer {
         &mut self,
         device: Arc<Device>,
         future: impl GpuFuture + 'a,
-    ) -> impl GpuFuture + 'a {
+    ) -> Box<dyn GpuFuture + 'a> {
         // TODO: ugh, so many boxing...
 
         // let all the pict-layers load
         let mut future: Box<dyn GpuFuture + 'a> = Box::new(future);
+
         for layer in &mut self.pict_layers {
-            future = Box::new(layer.join_future(device.clone(), future));
+            if layer.has_future() {
+                future = Box::new(layer.join_future(device.clone(), future));
+            }
         }
 
         if let Some(f) = self.overlay_future.take() {
-            future.join(Box::new(f) as Box<dyn GpuFuture>)
+            Box::new(future.join(Box::new(f) as Box<dyn GpuFuture>))
         } else {
-            future.join(Box::new(vulkano::sync::now(device)) as Box<dyn GpuFuture>)
+            future
         }
     }
 }
