@@ -1,5 +1,3 @@
-pub mod shaders;
-
 use vulkano::descriptor::descriptor_set::{DescriptorSet, PersistentDescriptorSet};
 use vulkano::device::Queue;
 use vulkano::format::Format;
@@ -65,7 +63,7 @@ impl PictLayer {
 pub struct Layer {
     // S25 archive that corresponds to the layer
     pub s25_archive: Option<S25Archive>,
-    // paremters for pict layers
+    // parameters for pict layers
     pub pict_layers: Vec<PictLayer>,
     pub overlay: Option<Texture>,
     pub overlay_future: Option<CommandBufferExecFuture<NowFuture, AutoCommandBuffer>>,
