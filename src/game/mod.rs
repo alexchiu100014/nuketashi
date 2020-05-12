@@ -6,12 +6,14 @@ pub mod text;
 pub mod texture_loader;
 
 // vulkano; Vulkan rapper
+use vulkano::command_buffer::DynamicState;
 use vulkano::device::{Device, DeviceExtensions, Queue};
 use vulkano::image::swapchain::SwapchainImage;
 use vulkano::instance::PhysicalDevice;
 use vulkano::swapchain::{
     ColorSpace, FullscreenExclusive, PresentMode, Surface, SurfaceTransform, Swapchain,
 };
+
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
@@ -183,20 +185,193 @@ impl<'a> Game<'a> {
     /// It takes the ownership of a Game instance, and won't return until
     /// the program is closed.
     pub fn execute(self) {
-        self.event_loop
-            .run(move |event, _evt_loop, control_flow| match event {
-                Event::WindowEvent {
-                    event: WindowEvent::CloseRequested,
-                    ..
-                } => {
-                    *control_flow = ControlFlow::Exit;
+        use vulkano::command_buffer::AutoCommandBufferBuilder;
+        use vulkano::pipeline::GraphicsPipeline;
+        use vulkano::swapchain::{AcquireError, SwapchainCreationError};
+        use vulkano::sync::{GpuFuture, FlushError};
+
+        use crate::game::layer::Layer;
+        use crate::format::s25::S25Archive;
+
+        let Game {
+            physical: _,
+            device,
+            event_loop,
+            surface,
+            mut swapchain,
+            images,
+            graphical_queue,
+            transfer_queue: _,
+        } = self;
+
+        let mut layer = Layer::default();
+        layer.load_s25(
+            S25Archive::open("./blob/NUKITASHI_G1.WAR/IKUKO_01M.s25").unwrap(),
+        );
+
+        let render_pass = pipeline::create_render_pass(device.clone(), &swapchain);
+
+        let vs = crate::game::shaders::pict_layer::vs::Shader::load(device.clone()).unwrap();
+        let fs = crate::game::shaders::pict_layer::fs::Shader::load(device.clone()).unwrap();
+
+        let pipeline = Arc::new(
+            GraphicsPipeline::start()
+                .vertex_input_single_buffer()
+                .vertex_shader(vs.main_entry_point(), ())
+                .triangle_strip()
+                .viewports_dynamic_scissors_irrelevant(1)
+                .fragment_shader(fs.main_entry_point(), ())
+                .blend_alpha_blending()
+                .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
+                .build(device.clone())
+                .unwrap(),
+        );
+
+        let mut dynamic_state = DynamicState {
+            line_width: None,
+            viewports: None,
+            scissors: None,
+            compare_mask: None,
+            write_mask: None,
+            reference: None,
+        };
+
+        let mut framebuffers =
+            window_size_dependent_setup(&images, render_pass.clone(), &mut dynamic_state);
+        let mut previous_frame_end =
+            Some(Box::new(vulkano::sync::now(device.clone())) as Box<dyn GpuFuture>);
+        let mut recreate_swapchain = false;
+
+        layer.load_pict_layers(&[1,6,2], graphical_queue.clone(), pipeline.clone());
+
+        event_loop.run(move |event, _evt_loop, control_flow| match event {
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => {
+                *control_flow = ControlFlow::Exit;
+            }
+            Event::RedrawRequested(_) => {
+                println!("redraw");
+                
+                previous_frame_end.as_mut().unwrap().cleanup_finished();
+
+                if recreate_swapchain {
+                    // Get the new dimensions of the window.
+                    let dimensions: [u32; 2] = surface.window().inner_size().into();
+                    let (new_swapchain, new_images) =
+                        match swapchain.recreate_with_dimensions(dimensions) {
+                            Ok(r) => r,
+                            // This error tends to happen when the user is manually resizing the window.
+                            // Simply restarting the loop is the easiest way to fix this issue.
+                            Err(SwapchainCreationError::UnsupportedDimensions) => return,
+                            Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
+                        };
+
+                    swapchain = new_swapchain;
+                    // Because framebuffers contains an Arc on the old swapchain, we need to
+                    // recreate framebuffers as well.
+                    framebuffers = window_size_dependent_setup(
+                        &new_images,
+                        render_pass.clone(),
+                        &mut dynamic_state,
+                    );
+                    recreate_swapchain = false;
                 }
-                Event::RedrawRequested(_) => {
-                    // self.perform_draw();
+
+                let (image_num, suboptimal, acquire_future) =
+                    match vulkano::swapchain::acquire_next_image(swapchain.clone(), None) {
+                        Ok(r) => r,
+                        Err(AcquireError::OutOfDate) => {
+                            recreate_swapchain = true;
+                            return;
+                        }
+                        Err(e) => panic!("Failed to acquire next image: {:?}", e),
+                    };
+
+                if suboptimal {
+                    recreate_swapchain = true;
                 }
-                _ => {
-                    // do nothing
+
+                let command_buffer = AutoCommandBufferBuilder::primary_one_time_submit(
+                    device.clone(),
+                    graphical_queue.family(),
+                )
+                .unwrap()
+                .begin_render_pass(
+                    framebuffers[image_num].clone(),
+                    false,
+                    vec![[1.0, 1.0, 1.0, 1.0].into()],
+                )
+                .unwrap();
+
+                let command_buffer = layer
+                    .draw(command_buffer, pipeline.clone(), &dynamic_state)
+                    .end_render_pass()
+                    .unwrap()
+                    .build()
+                    .unwrap();
+
+                let future = previous_frame_end
+                    .take()
+                    .unwrap()
+                    .join(acquire_future);
+                
+                let future = 
+                    layer.join_future(device.clone(), future)
+                    .then_execute(graphical_queue.clone(), command_buffer)
+                    .unwrap()
+                    .then_swapchain_present(graphical_queue.clone(), swapchain.clone(), image_num)
+                    .then_signal_fence_and_flush();
+    
+                match future {
+                    Ok(future) => {
+                        previous_frame_end = Some(Box::new(future) as Box<_>);
+                    }
+                    Err(FlushError::OutOfDate) => {
+                        recreate_swapchain = true;
+                        previous_frame_end = Some(Box::new(vulkano::sync::now(device.clone())) as Box<_>);
+                    }
+                    Err(e) => {
+                        println!("Failed to flush future: {:?}", e);
+                        previous_frame_end = Some(Box::new(vulkano::sync::now(device.clone())) as Box<_>);
+                    }
                 }
-            });
+            }
+            _ => {
+                // do nothing
+            }
+        });
     }
+}
+
+use vulkano::framebuffer::{Framebuffer, FramebufferAbstract, RenderPassAbstract, Subpass};
+use vulkano::pipeline::viewport::Viewport;
+
+fn window_size_dependent_setup(
+    images: &[Arc<SwapchainImage<Window>>],
+    render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
+    dynamic_state: &mut DynamicState,
+) -> Vec<Arc<dyn FramebufferAbstract + Send + Sync>> {
+    let dimensions = images[0].dimensions();
+
+    let viewport = Viewport {
+        origin: [0.0, 0.0],
+        dimensions: [dimensions[0] as f32, dimensions[1] as f32],
+        depth_range: 0.0..1.0,
+    };
+    dynamic_state.viewports = Some(vec![viewport]);
+
+    images
+        .iter()
+        .map(|image| {
+            Arc::new(
+                Framebuffer::start(render_pass.clone())
+                    .add(image.clone())
+                    .unwrap()
+                    .build()
+                    .unwrap(),
+            ) as Arc<dyn FramebufferAbstract + Send + Sync>
+        })
+        .collect::<Vec<_>>()
 }

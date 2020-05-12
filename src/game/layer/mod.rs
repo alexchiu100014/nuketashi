@@ -5,12 +5,12 @@ use vulkano::command_buffer::{
 };
 use vulkano::descriptor::descriptor_set::{DescriptorSet, PersistentDescriptorSet};
 use vulkano::descriptor::PipelineLayoutAbstract;
-use vulkano::device::Queue;
+use vulkano::device::{Device, Queue};
 use vulkano::format::Format;
 use vulkano::image::ImmutableImage;
 use vulkano::pipeline::{vertex::VertexSource, GraphicsPipeline, GraphicsPipelineAbstract};
 use vulkano::sampler::{Filter, MipmapMode, Sampler, SamplerAddressMode};
-use vulkano::sync::NowFuture;
+use vulkano::sync::{GpuFuture, NowFuture};
 
 use std::sync::Arc;
 
@@ -23,6 +23,12 @@ pub enum OverlayMode {
     Disabled,
     Normal,
     Reverse,
+}
+
+impl Default for OverlayMode {
+    fn default() -> Self {
+        Self::Disabled
+    }
 }
 
 #[derive(Default, Debug, Clone)]
@@ -48,7 +54,7 @@ pub struct PictLayer {
 
 fn point_at(x: i32, y: i32) -> [f32; 2] {
     const W_COEF: f64 = 2.0 / (crate::constants::GAME_WINDOW_WIDTH as f64);
-    const H_COEF: f64 = 2.0 / (crate::constants::GAME_WINDOW_WIDTH as f64);
+    const H_COEF: f64 = 2.0 / (crate::constants::GAME_WINDOW_HEIGHT as f64);
 
     [
         (x as f64 * W_COEF - 1.0) as f32,
@@ -169,8 +175,27 @@ impl PictLayer {
             )
             .unwrap()
     }
+
+    pub fn join_future(&mut self, device: Arc<Device>, future: impl GpuFuture) -> impl GpuFuture {
+        let future = self.join_vtx_future(device.clone(), future);
+
+        if let Some(f) = self.future.take() {
+            future.join(Box::new(f) as Box<dyn GpuFuture>)
+        } else {
+            future.join(Box::new(vulkano::sync::now(device)) as Box<dyn GpuFuture>)
+        }
+    }
+
+    fn join_vtx_future(&mut self, device: Arc<Device>, future: impl GpuFuture) -> impl GpuFuture {
+        if let Some(f) = self.vtx_future.take() {
+            future.join(Box::new(f) as Box<dyn GpuFuture>)
+        } else {
+            future.join(Box::new(vulkano::sync::now(device)) as Box<dyn GpuFuture>)
+        }
+    }
 }
 
+#[derive(Default)]
 pub struct Layer {
     // S25 archive that corresponds to the layer
     pub s25_archive: Option<S25Archive>,
@@ -224,7 +249,7 @@ impl Layer {
                 }
 
                 let img = arc
-                    .load_image(entry as usize)
+                    .load_image(i * 100 + entry as usize)
                     .expect("failed to load the image entry");
 
                 // load pict-layer information to GPU
@@ -277,5 +302,25 @@ impl Layer {
         // TODO: apply overlay
 
         builder
+    }
+
+    pub fn join_future<'a>(
+        &mut self,
+        device: Arc<Device>,
+        future: impl GpuFuture + 'a,
+    ) -> impl GpuFuture + 'a {
+        // TODO: ugh, so many boxing...
+
+        // let all the pict-layers load
+        let mut future: Box<dyn GpuFuture + 'a> = Box::new(future);
+        for layer in &mut self.pict_layers {
+            future = Box::new(layer.join_future(device.clone(), future));
+        }
+
+        if let Some(f) = self.overlay_future.take() {
+            future.join(Box::new(f) as Box<dyn GpuFuture>)
+        } else {
+            future.join(Box::new(vulkano::sync::now(device)) as Box<dyn GpuFuture>)
+        }
     }
 }
