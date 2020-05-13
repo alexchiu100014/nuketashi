@@ -29,6 +29,7 @@ pub struct Text {
     pub wireframes: Vec<(i32, i32, i32, i32)>,
     pub offset: (i32, i32),
     pub size: (i32, i32),
+    pub use_cursor: bool,
     pub cursor: f32,
     pub texture: Option<Texture>,
     pub tex_future: Option<CommandBufferExecFuture<NowFuture, AutoCommandBuffer>>,
@@ -45,7 +46,7 @@ pub struct Text {
 pub struct Vertex {
     pub position: [f32; 2],
     pub uv: [f32; 2],
-    pub text_count: i32,
+    pub text_count: f32,
 }
 
 vulkano::impl_vertex!(Vertex, position, uv, text_count);
@@ -133,10 +134,10 @@ impl Text {
             device,
             Filter::Linear,
             Filter::Linear,
-            MipmapMode::Linear,
-            SamplerAddressMode::ClampToEdge,
-            SamplerAddressMode::ClampToEdge,
-            SamplerAddressMode::ClampToEdge,
+            MipmapMode::Nearest,
+            SamplerAddressMode::Repeat,
+            SamplerAddressMode::Repeat,
+            SamplerAddressMode::Repeat,
             0.0,
             1.0,
             0.0,
@@ -161,22 +162,22 @@ impl Text {
             vertices.push(Vertex {
                 position: viewport::point_at(x, y),
                 uv: viewport::point_unscaled_boxed(x, y, self.size.0, self.size.1),
-                text_count: i as i32,
+                text_count: i as f32,
             });
             vertices.push(Vertex {
                 position: viewport::point_at(x + w, y),
                 uv: viewport::point_unscaled_boxed(x + w, y, self.size.0, self.size.1),
-                text_count: i as i32,
+                text_count: i as f32 + 0.8,
             });
             vertices.push(Vertex {
                 position: viewport::point_at(x, y + h),
                 uv: viewport::point_unscaled_boxed(x, y + h, self.size.0, self.size.1),
-                text_count: i as i32,
+                text_count: i as f32,
             });
             vertices.push(Vertex {
                 position: viewport::point_at(x + w, y + h),
                 uv: viewport::point_unscaled_boxed(x + w, y + h, self.size.0, self.size.1),
-                text_count: i as i32,
+                text_count: i as f32 + 0.8,
             });
 
             let i_4 = i as u16 * 4;
@@ -240,7 +241,8 @@ impl Text {
                     self.set.clone().unwrap(),
                     crate::game::shaders::text::vs::ty::PushConstantData {
                         offset: viewport::point_unscaled(self.offset.0, self.offset.1),
-                        text_cursor: 0.0,
+                        text_cursor: self.cursor,
+                        use_cursor: (self.use_cursor && self.cursor < self.wireframes.len() as f32) as _,
                     },
                 )
                 .unwrap()

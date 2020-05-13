@@ -245,6 +245,8 @@ impl Game<'static> {
         let mut text = Text::new((380, 700), (950, 160));
         let mut character_text = Text::new((380, 640), (900, 50));
 
+        text.use_cursor = true;
+
         layers.resize_with(30, Layer::default);
 
         let event_loop = self.event_loop.take().unwrap();
@@ -253,6 +255,11 @@ impl Game<'static> {
         let mut mouse_entered = false;
 
         self.vm.load_command_until_wait().unwrap();
+
+        use std::time::Duration;
+        use winit::event::StartCause;
+
+        let tick_per_frame = Duration::from_secs_f64(1.0 / 60.0);
 
         event_loop.run(move |event, _evt_loop, control_flow| match event {
             Event::WindowEvent {
@@ -269,6 +276,15 @@ impl Game<'static> {
 
                 self.vm.request_draw();
                 self.surface.window().request_redraw();
+            }
+            Event::NewEvents(StartCause::Init) => {
+                *control_flow = ControlFlow::WaitUntil(Instant::now() + tick_per_frame)
+            }
+            Event::NewEvents(StartCause::ResumeTimeReached { .. }) => {
+                self.surface.window().request_redraw();
+                self.vm.request_draw();
+                text.cursor += 0.3;
+                *control_flow = ControlFlow::WaitUntil(Instant::now() + tick_per_frame);
             }
             Event::WindowEvent {
                 event: WindowEvent::CursorEntered { .. },
@@ -289,6 +305,12 @@ impl Game<'static> {
                 cur_x = 1600.0 * position.x / self.surface.window().inner_size().width as f64;
                 cur_y = 900.0 * position.y / self.surface.window().inner_size().height as f64;
             }
+            Event::WindowEvent {
+                event: WindowEvent::KeyboardInput { input, .. },
+                ..
+            } => {
+                log::debug!("key press: {:?}", input);
+            }
             Event::DeviceEvent {
                 device_id: _,
                 event,
@@ -296,9 +318,6 @@ impl Game<'static> {
                 use winit::event::{DeviceEvent, ElementState};
 
                 match event {
-                    DeviceEvent::Key(n) => {
-                        log::debug!("key: {:?}", n);
-                    }
                     DeviceEvent::Button {
                         state: ElementState::Pressed,
                         ..
@@ -318,11 +337,11 @@ impl Game<'static> {
                 }
             }
             Event::RedrawRequested(_) => {
-                *control_flow = ControlFlow::Wait;
+                // *control_flow = ControlFlow::Wait;
 
                 // TODO:
                 if !self.vm.draw_requested {
-                    log::debug!("entering wait mode");
+                    // log::debug!("entering wait mode");
                     return;
                 }
 
@@ -342,10 +361,7 @@ impl Game<'static> {
 
                 previous_frame_end.as_mut().unwrap().cleanup_finished();
 
-                if commands.is_empty() {
-                    log::debug!("command queue is empty; entering wait mode");
-                    return;
-                } else {
+                if !commands.is_empty() {
                     log::debug!("commands received: {:?}", commands);
                 }
 
@@ -379,6 +395,7 @@ impl Game<'static> {
                             log::debug!("dialogue: {}, character: {:?}", dialogue, character_name);
                             text.write(&dialogue, self.graphical_queue.clone());
                             text.load_gpu(self.graphical_queue.clone(), pipeline_text.clone());
+                            text.cursor = 0.0;
 
                             if let Some(character_name) = character_name {
                                 character_text.write(&character_name, self.graphical_queue.clone());
