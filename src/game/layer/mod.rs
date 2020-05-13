@@ -292,6 +292,10 @@ impl Layer {
         self.overlay_mode = OverlayMode::Disabled;
     }
 
+    pub fn move_to(&mut self, x: i32, y: i32) {
+        self.position = (x, y);
+    }
+
     pub fn draw<P>(
         &self,
         builder: AutoCommandBufferBuilder,

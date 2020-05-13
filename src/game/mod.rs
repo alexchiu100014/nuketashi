@@ -10,9 +10,7 @@ use vulkano::command_buffer::DynamicState;
 use vulkano::device::{Device, DeviceExtensions, Queue};
 use vulkano::image::swapchain::SwapchainImage;
 use vulkano::instance::PhysicalDevice;
-use vulkano::swapchain::{
-    ColorSpace, FullscreenExclusive, PresentMode, Surface, SurfaceTransform, Swapchain,
-};
+use vulkano::swapchain::{FullscreenExclusive, PresentMode, Surface, SurfaceTransform, Swapchain};
 
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -21,6 +19,7 @@ use winit::window::{Window, WindowBuilder};
 use std::sync::Arc;
 
 use crate::constants;
+use crate::script::vm::{DrawCall, Vm};
 
 pub struct Game<'a> {
     pub physical: PhysicalDevice<'a>,
@@ -31,6 +30,7 @@ pub struct Game<'a> {
     pub images: Vec<Arc<SwapchainImage<Window>>>,
     pub graphical_queue: Arc<Queue>,
     pub transfer_queue: Arc<Queue>,
+    pub vm: Vm<std::io::Cursor<&'static [u8]>>,
 }
 
 impl Game<'static> {
@@ -101,6 +101,9 @@ impl Game<'static> {
             images,
             graphical_queue,
             transfer_queue,
+            vm: Vm::new(std::io::Cursor::new(
+                &include_bytes!("../script/test/0X_RT_XX_utf8.txt")[..],
+            )),
         }
     }
 }
@@ -201,7 +204,6 @@ impl Game<'static> {
         use vulkano::swapchain::{AcquireError, SwapchainCreationError};
         use vulkano::sync::{FlushError, GpuFuture};
 
-        use crate::format::s25::S25Archive;
         use crate::game::layer::Layer;
 
         use std::time::Instant;
@@ -244,27 +246,11 @@ impl Game<'static> {
 
         let mut layers = Vec::new();
 
-        layers.resize_with(1, || {
-            let mut l = Layer::default();
-            l.load_s25(S25Archive::open("./blob/NUKITASHI_G1.WAR/IKUKO_01M.S25").unwrap());
-            l.load_pict_layers(&[1, 6, 2], self.transfer_queue.clone(), pipeline.clone());
-            l
-        });
+        layers.resize_with(30, Layer::default);
 
-        log::debug!("loaded all ikuko");
+        let event_loop = self.event_loop.take().unwrap();
 
-        layers
-            .iter_mut()
-            .fold(
-                Box::new(vulkano::sync::now(self.device.clone())) as Box<dyn GpuFuture>,
-                |f, l| l.join_future(self.device.clone(), f),
-            )
-            .flush()
-            .unwrap();
-
-        log::debug!("uploaded all ikuko");
-
-        let mut event_loop = self.event_loop.take().unwrap();
+        self.vm.load_command_until_wait().unwrap();
 
         event_loop.run(move |event, _evt_loop, control_flow| match event {
             Event::WindowEvent {
@@ -280,18 +266,48 @@ impl Game<'static> {
                 println!("resize");
                 recreate_swapchain = true;
             }
+            Event::DeviceEvent {
+                device_id: _,
+                event,
+            } => {
+                use winit::event::{DeviceEvent, ElementState};
+
+                match event {
+                    DeviceEvent::Key(n) => {
+                        log::debug!("key: {:?}", n);
+                    }
+                    DeviceEvent::Button {
+                        state: ElementState::Pressed,
+                        ..
+                    } => {
+                        log::debug!("mouse down");
+                    }
+                    DeviceEvent::Button {
+                        state: ElementState::Released,
+                        ..
+                    } => {
+                        log::debug!("mouse up");
+                        self.vm.load_command_until_wait().unwrap();
+                    }
+                    _ => {}
+                }
+            }
             Event::RedrawRequested(_) => {
+                // TODO:
                 self.perform_redraw();
 
                 self.surface.window().request_redraw();
 
                 let now = Instant::now();
+                let commands = self.vm.poll();
 
                 if total_frames > 30 {
-                    log::debug!(
-                        "fps: {:.2}",
-                        (total_frames as f64) / (now - last_frame).as_secs_f64()
-                    );
+                    if !commands.is_empty() {
+                            log::debug!(
+                            "fps: {:.2}",
+                            (total_frames as f64) / (now - last_frame).as_secs_f64()
+                        );
+                    }
                     total_frames = 1;
                     last_frame = now;
                 } else {
@@ -299,6 +315,42 @@ impl Game<'static> {
                 }
 
                 previous_frame_end.as_mut().unwrap().cleanup_finished();
+
+                if commands.is_empty() {
+                    return;
+                }
+
+                for c in commands {
+                    match c {
+                        DrawCall::LayerClear { layer } => {
+                            layers[layer as usize].clear_layers();
+                        }
+                        DrawCall::LayerMoveTo {
+                            layer,
+                            origin: (x, y),
+                        } => {
+                            layers[layer as usize].move_to(x, y);
+                        }
+                        DrawCall::LayerLoadS25 { layer, path } => {
+                            use crate::format::s25::S25Archive;
+
+                            layers[layer as usize].load_s25(S25Archive::open(path).unwrap());
+                        }
+                        DrawCall::LayerSetCharacter { layer, pict_layers } => {
+                            layers[layer as usize].load_pict_layers(
+                                &pict_layers,
+                                self.graphical_queue.clone(),
+                                pipeline.clone(),
+                            );
+
+                            previous_frame_end = Some(Box::new(
+                                layers[layer as usize]
+                                    .join_future(self.device.clone(), previous_frame_end.take().unwrap()),
+                            ));
+                        }
+                        _ => {}
+                    }
+                }
 
                 if recreate_swapchain {
                     // Get the new dimensions of the window.
@@ -362,7 +414,11 @@ impl Game<'static> {
                     .join(acquire_future)
                     .then_execute(self.graphical_queue.clone(), command_buffer)
                     .unwrap()
-                    .then_swapchain_present(self.graphical_queue.clone(), self.swapchain.clone(), image_num)
+                    .then_swapchain_present(
+                        self.graphical_queue.clone(),
+                        self.swapchain.clone(),
+                        image_num,
+                    )
                     .then_signal_fence_and_flush();
 
                 match future {

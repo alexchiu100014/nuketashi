@@ -11,20 +11,9 @@ pub enum DrawCall {
     LayerClear {
         layer: i32,
     },
-    LayerClearOverlay {
-        layer: i32,
-    },
     LayerMoveTo {
         layer: i32,
         origin: (i32, i32),
-    },
-    LayerOpacity {
-        layer: i32,
-        opacity: f32,
-    },
-    LayerOverlayRate {
-        layer: i32,
-        rate: f32,
     },
     LayerLoadS25 {
         layer: i32,
@@ -32,17 +21,23 @@ pub enum DrawCall {
     },
     LayerSetCharacter {
         layer: i32,
-        pict_layers: Vec<u32>,
+        pict_layers: Vec<i32>,
     },
-    LayerLoadSingle {
+    /* LayerOpacity {
         layer: i32,
-        path: PathBuf,
-        pict_layer: u32,
+        opacity: f32,
+    },
+    LayerOverlayRate {
+        layer: i32,
+        rate: f32,
     },
     LayerLoadOverlay {
         layer: i32,
         path: PathBuf,
         pict_layer: u32,
+    },
+    LayerClearOverlay {
+        layer: i32,
     },
     // face layer
     FaceLayerClear {
@@ -63,7 +58,12 @@ pub enum DrawCall {
     ShowFadeOverlay {
         opacity: f32,
     },
-    PopFadeOverlay,
+    PopFadeOverlay, */
+    // text
+    Dialogue {
+        character_name: Option<String>,
+        dialogue: String,
+    },
 }
 
 #[derive(Clone, Copy)]
@@ -74,8 +74,10 @@ pub enum LayerEffect {
 pub struct Vm<R> {
     pub reader: BufReader<R>,
     pub draw_calls: Vec<DrawCall>,
+    pub draw_requested: bool,
     pub effect_queue: Vec<LayerEffect>,
     pub face_map: HashMap<String, String>,
+    pub root_dir: PathBuf,
 }
 
 // constructor
@@ -89,6 +91,8 @@ where
             draw_calls: vec![],
             effect_queue: vec![],
             face_map: Default::default(),
+            root_dir: "./blob/".into(),
+            draw_requested: false,
         }
     }
 }
@@ -112,9 +116,10 @@ where
 
             if cmd.is_empty() && !dialogue_buffer.is_empty() {
                 // flush draw command and display the dialouge
-                println!("flush draw command: {:?}", self.draw_calls);
+                log::debug!("flush draw command: {:?}", self.draw_calls);
+                log::debug!("flush dialogue: {:?}", dialogue_buffer);
 
-                println!("flush dialogue: {:?}", dialogue_buffer);
+                self.draw_requested = true;
                 dialogue_buffer.clear();
 
                 break;
@@ -132,6 +137,20 @@ where
         }
 
         Ok(true)
+    }
+}
+
+impl<R> Vm<R> {
+    pub fn poll(&mut self) -> Vec<DrawCall> {
+        if self.draw_requested {
+            std::mem::replace(&mut self.draw_calls, vec![])
+        } else {
+            vec![]
+        }
+    }
+
+    pub fn request_draw(&mut self) {
+        self.draw_requested = true;
     }
 }
 
@@ -153,15 +172,143 @@ impl<R> Vm<R> {
     fn visit_command(&mut self, command: &str) {
         let command: Vec<_> = command.split(',').collect();
 
-        println!("command: {:?}", command);
+        log::debug!("command: {:?}", command);
 
         match command[0] {
-            "$FACE" => {}
+            "$L_CHR" => {
+                let layer_no: i32 = command[1].parse().unwrap();
+
+                if command.len() == 6 {
+                    let filename: &str = command[2].split('\\').skip(1).next().unwrap();
+                    let x: i32 = command[3].parse().unwrap();
+                    let y: i32 = command[4].parse().unwrap();
+                    let entry: i32 = command[5].parse().unwrap();
+
+                    self.l_chr(layer_no, filename, x, y, entry);
+                } else {
+                    self.l_clear(layer_no);
+                }
+            }
+            "$L_MONT" => {
+                let layer: i32 = command[1].parse().unwrap();
+
+                let filename: &str = command[2].split('\\').skip(1).next().unwrap();
+                let x: i32 = command[3].parse().unwrap();
+                let y: i32 = command[4].parse().unwrap();
+
+                if filename == "emo_0_0.s25" {
+                    log::warn!("emo_0_0.s25 accompanied by $MOTION command");
+                    log::warn!("the image is skipped; there is no way to display this");
+                    log::warn!("visit https://github.com/3c1y/nkts for more information.");
+
+                    return;
+                }
+
+                assert_eq!(command[6], "m");
+
+                self.l_mont(
+                    layer,
+                    filename,
+                    x,
+                    y,
+                    (&command[7..])
+                        .iter()
+                        .map(|e| e.parse::<i32>().unwrap())
+                        .collect(),
+                );
+            }
+            "$DRAW" => {
+                let _fade_duration: i32 = command[1].parse().unwrap();
+                self.request_draw();
+            }
+            // "$FACE" => {}
             _ => {}
         }
     }
 
-    fn _send_draw_call(&mut self, call: DrawCall) {
-        println!("draw call: {:?}", call);
+    fn send_draw_call(&mut self, call: DrawCall) {
+        log::debug!("draw call: {:?}", call);
+        self.draw_calls.push(call);
+    }
+
+    fn l_clear(&mut self, layer: i32) {
+        self.send_draw_call(DrawCall::LayerClear { layer });
+    }
+
+    fn l_chr(&mut self, layer: i32, filename: &str, x: i32, y: i32, entry: i32) {
+        self.send_draw_call(DrawCall::LayerLoadS25 {
+            layer,
+            path: self.lookup(filename),
+        });
+
+        self.send_draw_call(DrawCall::LayerSetCharacter {
+            layer,
+            pict_layers: vec![entry],
+        });
+
+        self.send_draw_call(DrawCall::LayerMoveTo {
+            layer,
+            origin: (x, y),
+        });
+    }
+
+    fn l_mont(&mut self, layer: i32, filename: &str, x: i32, y: i32, entries: Vec<i32>) {
+        self.send_draw_call(DrawCall::LayerLoadS25 {
+            layer,
+            path: self.lookup(filename),
+        });
+
+        self.send_draw_call(DrawCall::LayerSetCharacter {
+            layer,
+            pict_layers: entries,
+        });
+
+        self.send_draw_call(DrawCall::LayerMoveTo {
+            layer,
+            origin: (x, y),
+        });
+    }
+
+    fn lookup_into(&self, filename: &str, dir: &Path) -> Option<PathBuf> {
+        for d in std::fs::read_dir(dir) {
+            for e in d {
+                if let Ok(entry) = e {
+                    if entry.metadata().unwrap().is_dir() {
+                        if let Some(r) = self.lookup_into(filename, &entry.path()) {
+                            return Some(r);
+                        }
+                    }
+
+                    let path = entry.path();
+                    let entry_name = path
+                        .file_name()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_ascii_uppercase();
+                    let entry_stem = path
+                        .file_stem()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_ascii_uppercase();
+
+                    if entry_stem.ends_with("(1)")
+                        && filename.starts_with(entry_stem.trim_end_matches("(1)"))
+                    {
+                        return Some(entry.path().into());
+                    } else if entry_name == filename {
+                        return Some(entry.path().into());
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    fn lookup(&self, filename: &str) -> PathBuf {
+        self.lookup_into(&filename.to_ascii_uppercase(), &self.root_dir)
+            .unwrap()
     }
 }
