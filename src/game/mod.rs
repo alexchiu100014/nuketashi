@@ -209,6 +209,8 @@ impl Game<'static> {
         use vulkano::swapchain::{AcquireError, SwapchainCreationError};
         use vulkano::sync::{FlushError, GpuFuture};
 
+        use crate::game::text::Text;
+
         use crate::game::layer::Layer;
 
         use std::time::Instant;
@@ -217,6 +219,9 @@ impl Game<'static> {
 
         let pipeline =
             pipeline::create_pict_layer_pipeline(self.device.clone(), render_pass.clone());
+
+        let pipeline_text =
+            pipeline::create_text_layer_pipeline(self.device.clone(), render_pass.clone());
 
         let mut dynamic_state = DynamicState {
             line_width: None,
@@ -237,6 +242,8 @@ impl Game<'static> {
         let mut total_frames = 0usize;
 
         let mut layers = Vec::new();
+        let mut text = Text::new((380, 700), (1000, 160));
+        let mut character_text = Text::new((380, 640), (1000, 160));
 
         layers.resize_with(30, Layer::default);
 
@@ -363,11 +370,21 @@ impl Game<'static> {
                         DrawCall::LayerSetCharacter { layer, pict_layers } => {
                             log::debug!("load_entries: {}", layer);
 
-                            layers[layer as usize].load_pict_layers(
-                                &pict_layers,
-                                // self.graphical_queue.clone(),
-                                // pipeline.clone(),
-                            );
+                            layers[layer as usize].load_pict_layers(&pict_layers);
+                        }
+                        DrawCall::Dialogue {
+                            character_name,
+                            dialogue,
+                        } => {
+                            log::debug!("dialogue: {}, character: {:?}", dialogue, character_name);
+                            text.write(&dialogue, self.graphical_queue.clone());
+                            text.load_gpu(self.graphical_queue.clone(), pipeline_text.clone());
+
+                            if let Some(character_name) = character_name {
+                                character_text.write(&character_name, self.graphical_queue.clone());
+                                character_text
+                                    .load_gpu(self.graphical_queue.clone(), pipeline_text.clone());
+                            }
                         }
                         _ => {}
                     }
@@ -381,21 +398,30 @@ impl Game<'static> {
                     ));
                 }
 
+                if !text.is_cached() {
+                    previous_frame_end = Some(Box::new(
+                        text.join_future(previous_frame_end.take().unwrap()),
+                    ));
+                }
+
+                if !character_text.is_cached() {
+                    previous_frame_end = Some(Box::new(
+                        character_text.join_future(previous_frame_end.take().unwrap()),
+                    ));
+                }
+
                 if recreate_swapchain {
                     // Get the new dimensions of the window.
                     let dimensions: [u32; 2] = self.surface.window().inner_size().into();
                     let (new_swapchain, new_images) =
                         match self.swapchain.recreate_with_dimensions(dimensions) {
                             Ok(r) => r,
-                            // This error tends to happen when the user is manually resizing the window.
-                            // Simply restarting the loop is the easiest way to fix this issue.
                             Err(SwapchainCreationError::UnsupportedDimensions) => return,
                             Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
                         };
 
                     self.swapchain = new_swapchain;
-                    // Because framebuffers contains an Arc on the old swapchain, we need to
-                    // recreate framebuffers as well.
+
                     framebuffers = window_size_dependent_setup(
                         &new_images,
                         render_pass.clone(),
@@ -435,6 +461,12 @@ impl Game<'static> {
                     command_buffer = l.draw(command_buffer, pipeline.clone(), &dynamic_state);
                 }
 
+                let command_buffer =
+                    text.draw(command_buffer, pipeline_text.clone(), &dynamic_state);
+
+                let command_buffer =
+                    character_text.draw(command_buffer, pipeline_text.clone(), &dynamic_state);
+
                 let command_buffer = command_buffer.end_render_pass().unwrap().build().unwrap();
 
                 let future = previous_frame_end
@@ -472,7 +504,9 @@ impl Game<'static> {
         });
     }
 
-    pub fn perform_redraw(&mut self) {}
+    pub fn perform_redraw(&mut self) {
+        // TODo:
+    }
 }
 
 fn window_size_dependent_setup(

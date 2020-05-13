@@ -11,3 +11,7 @@ pub fn point_at(x: i32, y: i32) -> [f32; 2] {
 pub fn point_unscaled(x: i32, y: i32) -> [f32; 2] {
     [(x as f64 * W_COEF) as f32, (y as f64 * H_COEF) as f32]
 }
+
+pub fn point_unscaled_boxed(x: i32, y: i32, w: i32, h: i32) -> [f32; 2] {
+    [(x as f64 / w as f64) as f32, (y as f64 / h as f64) as f32]
+}

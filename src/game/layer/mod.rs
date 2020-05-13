@@ -17,6 +17,7 @@ use std::sync::Arc;
 use crate::format::s25::{S25Archive, S25Image};
 use crate::game::texture_loader;
 use crate::utils::viewport;
+
 pub type Texture = Arc<ImmutableImage<Format>>;
 
 #[derive(Clone, Copy, Eq, PartialEq)]

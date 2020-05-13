@@ -44,7 +44,7 @@ pub fn write_text_in_box(
             '①' => (None, Some(font.glyph('♡'))),
             c => (None, Some(font.glyph(c))),
         })
-        .scan((None, 0.0, v_metrics.ascent), |state, (c, g)| {
+        .scan((None, 2.0, 2.0 + v_metrics.ascent), |state, (c, g)| {
             let last = &mut state.0;
             let x = &mut state.1;
             let y = &mut state.2;
@@ -88,7 +88,13 @@ pub fn write_text_in_box(
     for g in layout {
         if let Some(g) = g {
             if let Some(bb) = g.pixel_bounding_box() {
-                bounding_box.push((bb.min.x, bb.min.y, bb.max.x - bb.min.x, bb.max.y - bb.min.y));
+                // expand bounding box
+                bounding_box.push((
+                    bb.min.x - 8,
+                    bb.min.y - 4,
+                    bb.max.x - bb.min.x + 16,
+                    bb.max.y - bb.min.y + 8,
+                ));
 
                 g.draw(|x, y, v| {
                     let x = x as i32 + bb.min.x;
@@ -97,7 +103,13 @@ pub fn write_text_in_box(
                     if x >= 0 && x < width as i32 && y >= 0 && y < height as i32 {
                         let x = x as usize;
                         let y = y as usize;
-                        mono_buffer[x + y * width] = (v * 255.0).min(255.0) as u8;
+                        let pos = (x + y * width) * 4;
+                        let val = (v * 255.0).min(255.0) as u8;
+
+                        mono_buffer[pos] = val;
+                        mono_buffer[pos + 1] = val;
+                        mono_buffer[pos + 2] = val;
+                        mono_buffer[pos + 3] = val;
                     }
                 });
             }

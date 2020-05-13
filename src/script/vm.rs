@@ -123,6 +123,26 @@ where
                 log::debug!("flush draw command: {:?}", self.draw_calls);
                 log::debug!("flush dialogue: {:?}", dialogue_buffer);
 
+                if dialogue_buffer
+                    .get(0)
+                    .and_then(|v| Some(v.starts_with("【")))
+                    .unwrap_or(false)
+                {
+                    let character_name = dialogue_buffer[0]
+                        .trim_start_matches("【")
+                        .trim_end_matches("】");
+
+                    self.send_draw_call(DrawCall::Dialogue {
+                        character_name: Some(character_name.split('/').last().unwrap().into()),
+                        dialogue: dialogue_buffer[1..].join(""),
+                    });
+                } else {
+                    self.send_draw_call(DrawCall::Dialogue {
+                        character_name: None,
+                        dialogue: dialogue_buffer.join(""),
+                    });
+                }
+
                 self.draw_requested = true;
                 dialogue_buffer.clear();
 
