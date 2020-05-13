@@ -8,8 +8,10 @@ pub mod texture_loader;
 // vulkano; Vulkan rapper
 use vulkano::command_buffer::DynamicState;
 use vulkano::device::{Device, DeviceExtensions, Queue};
+use vulkano::framebuffer::{Framebuffer, FramebufferAbstract, RenderPassAbstract};
 use vulkano::image::swapchain::SwapchainImage;
 use vulkano::instance::PhysicalDevice;
+use vulkano::pipeline::viewport::Viewport;
 use vulkano::swapchain::{FullscreenExclusive, PresentMode, Surface, SurfaceTransform, Swapchain};
 
 use winit::event::{Event, WindowEvent};
@@ -30,7 +32,7 @@ pub struct Game<'a> {
     pub images: Vec<Arc<SwapchainImage<Window>>>,
     pub graphical_queue: Arc<Queue>,
     pub transfer_queue: Arc<Queue>,
-    pub vm: Vm<std::io::Cursor<&'static [u8]>>,
+    pub vm: Vm<std::io::Cursor<String>>,
 }
 
 impl Game<'static> {
@@ -101,9 +103,12 @@ impl Game<'static> {
             images,
             graphical_queue,
             transfer_queue,
-            vm: Vm::new(std::io::Cursor::new(
-                &include_bytes!("../script/test/0X_RT_XX_utf8.txt")[..],
-            )),
+            vm: Vm::new(std::io::Cursor::new({
+                use encoding_rs::SHIFT_JIS;
+                let script = include_bytes!("../../blob/NUKITASHI_T.WAR/04_MH_15.TXT");
+                let (v, _, _) = SHIFT_JIS.decode(script);
+                v.into()
+            })),
         }
     }
 }
@@ -137,6 +142,7 @@ impl<'a> Game<'a> {
                 width: constants::GAME_WINDOW_WIDTH,
                 height: constants::GAME_WINDOW_HEIGHT,
             })
+            .with_resizable(false)
             .build(event_loop)
             .expect("failed to build Window");
 
@@ -208,9 +214,6 @@ impl Game<'static> {
         use std::time::Instant;
 
         let render_pass = pipeline::create_render_pass(self.device.clone(), &self.swapchain);
-
-        let vs = crate::game::shaders::pict_layer::vs::Shader::load(self.device.clone()).unwrap();
-        let fs = crate::game::shaders::pict_layer::fs::Shader::load(self.device.clone()).unwrap();
 
         let pipeline =
             pipeline::create_pict_layer_pipeline(self.device.clone(), render_pass.clone());
@@ -362,18 +365,20 @@ impl Game<'static> {
 
                             layers[layer as usize].load_pict_layers(
                                 &pict_layers,
-                                self.graphical_queue.clone(),
-                                pipeline.clone(),
+                                // self.graphical_queue.clone(),
+                                // pipeline.clone(),
                             );
-
-                            previous_frame_end =
-                                Some(Box::new(layers[layer as usize].join_future(
-                                    self.device.clone(),
-                                    previous_frame_end.take().unwrap(),
-                                )));
                         }
                         _ => {}
                     }
+                }
+
+                for l in &mut layers {
+                    l.load_pict_layers_to_gpu(self.graphical_queue.clone(), pipeline.clone());
+
+                    previous_frame_end = Some(Box::new(
+                        l.join_future(self.device.clone(), previous_frame_end.take().unwrap()),
+                    ));
                 }
 
                 if recreate_swapchain {
@@ -469,9 +474,6 @@ impl Game<'static> {
 
     pub fn perform_redraw(&mut self) {}
 }
-
-use vulkano::framebuffer::{Framebuffer, FramebufferAbstract, RenderPassAbstract, Subpass};
-use vulkano::pipeline::viewport::Viewport;
 
 fn window_size_dependent_setup(
     images: &[Arc<SwapchainImage<Window>>],

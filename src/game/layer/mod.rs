@@ -16,6 +16,7 @@ use std::sync::Arc;
 
 use crate::format::s25::{S25Archive, S25Image};
 use crate::game::texture_loader;
+use crate::utils::viewport;
 pub type Texture = Arc<ImmutableImage<Format>>;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -52,29 +53,27 @@ pub struct PictLayer {
         Option<CommandBufferExecFuture<NowFuture, AutoCommandBuffer<StandardCommandPoolAlloc>>>,
 }
 
-fn point_at(x: i32, y: i32) -> [f32; 2] {
-    const W_COEF: f64 = 2.0 / (crate::constants::GAME_WINDOW_WIDTH as f64);
-    const H_COEF: f64 = 2.0 / (crate::constants::GAME_WINDOW_HEIGHT as f64);
-
-    [
-        (x as f64 * W_COEF - 1.0) as f32,
-        (y as f64 * H_COEF - 1.0) as f32,
-    ]
-}
-
-fn point_unscaled(x: i32, y: i32) -> [f32; 2] {
-    const W_COEF: f64 = 2.0 / (crate::constants::GAME_WINDOW_WIDTH as f64);
-    const H_COEF: f64 = 2.0 / (crate::constants::GAME_WINDOW_HEIGHT as f64);
-
-    [(x as f64 * W_COEF) as f32, (y as f64 * H_COEF) as f32]
-}
-
 impl PictLayer {
     pub fn empty() -> Self {
         Self {
             entry_no: -1,
             ..Self::default()
         }
+    }
+
+    pub fn is_cached(&self) -> bool {
+        self.entry_no == -1 || self.texture.is_some()
+    }
+
+    pub fn clear(&mut self) {
+        self.entry_no = -1;
+
+        self.vtx_future.take();
+        self.future.take();
+
+        self.texture.take();
+        self.set.take();
+        self.vertex_buffer.take();
     }
 
     // load pict-layer information onto GPU
@@ -127,19 +126,19 @@ impl PictLayer {
             ImmutableBuffer::from_iter(
                 [
                     Vertex {
-                        position: point_at(self.offset.0, self.offset.1),
+                        position: viewport::point_at(self.offset.0, self.offset.1),
                         uv: [0.0, 0.0],
                     },
                     Vertex {
-                        position: point_at(self.offset.0, self.offset.1 + self.size.1),
+                        position: viewport::point_at(self.offset.0, self.offset.1 + self.size.1),
                         uv: [0.0, 1.0],
                     },
                     Vertex {
-                        position: point_at(self.offset.0 + self.size.0, self.offset.1),
+                        position: viewport::point_at(self.offset.0 + self.size.0, self.offset.1),
                         uv: [1.0, 0.0],
                     },
                     Vertex {
-                        position: point_at(
+                        position: viewport::point_at(
                             self.offset.0 + self.size.0,
                             self.offset.1 + self.size.1,
                         ),
@@ -173,17 +172,22 @@ impl PictLayer {
             + 'static
             + Clone,
     {
-        builder
-            .draw(
-                pipeline,
-                dyn_state,
-                self.vertex_buffer.clone().unwrap(),
-                self.set.clone().unwrap(),
-                crate::game::shaders::pict_layer::vs::ty::PushConstantData {
-                    offset: point_unscaled(x, y),
-                },
-            )
-            .unwrap()
+        // workaround for not-loaded pict-layers
+        if self.vertex_buffer.is_some() {
+            builder
+                .draw(
+                    pipeline,
+                    dyn_state,
+                    self.vertex_buffer.clone().unwrap(),
+                    self.set.clone().unwrap(),
+                    crate::game::shaders::pict_layer::vs::ty::PushConstantData {
+                        offset: viewport::point_unscaled(x, y),
+                    },
+                )
+                .unwrap()
+        } else {
+            builder
+        }
     }
 
     pub fn join_future(&mut self, device: Arc<Device>, future: impl GpuFuture) -> impl GpuFuture {
@@ -233,41 +237,56 @@ impl Layer {
         self.s25_archive = Some(s25);
     }
 
-    pub fn load_pict_layers<Mv, L, Rp>(
+    pub fn load_pict_layers(
         &mut self,
         pict_layers: &[i32],
+        // load_queue: Arc<Queue>,
+        // pipeline: Arc<GraphicsPipeline<Mv, L, Rp>>,
+    ) {
+        if self.s25_archive.is_none() {
+            log::warn!("s25 is not loaded. ignoring");
+            return;
+        }
+
+        // match the length of pict layers
+        self.pict_layers
+            .resize_with(pict_layers.len(), PictLayer::empty);
+
+        for (i, &entry) in pict_layers.iter().enumerate() {
+            let pict_layer = &mut self.pict_layers[i];
+            // don't reload if the image is the same
+            if pict_layer.entry_no == entry {
+                continue;
+            }
+
+            pict_layer.entry_no = entry;
+
+            // clear the pict-layer
+            pict_layer.clear();
+
+            // set entry number
+            pict_layer.entry_no = i as i32 * 100 + entry;
+        }
+    }
+
+    pub fn load_pict_layers_to_gpu<Mv, L, Rp>(
+        &mut self,
         load_queue: Arc<Queue>,
         pipeline: Arc<GraphicsPipeline<Mv, L, Rp>>,
     ) where
         L: PipelineLayoutAbstract,
     {
-        // match the length of pict layers
-        self.pict_layers
-            .resize_with(pict_layers.len(), PictLayer::empty);
-
         if let Some(arc) = &mut self.s25_archive {
-            for (i, &entry) in pict_layers.iter().enumerate() {
-                let pict_layer = &mut self.pict_layers[i];
-                // don't reload if the image is the same
-                if pict_layer.entry_no == entry {
-                    continue;
-                }
-
-                pict_layer.entry_no = entry;
-
-                // clear the pict-layer is -1 is given
-                if entry == -1 {
-                    pict_layer.texture = None;
-                    pict_layer.future = None;
+            for layer in self.pict_layers.iter_mut() {
+                if layer.entry_no == -1 || layer.is_cached() {
                     continue;
                 }
 
                 let img = arc
-                    .load_image(i * 100 + entry as usize)
+                    .load_image(layer.entry_no as usize)
                     .expect("failed to load the image entry");
 
-                // load pict-layer information to GPU
-                pict_layer.load_gpu(img, load_queue.clone(), pipeline.clone());
+                layer.load_gpu(img, load_queue.clone(), pipeline.clone());
             }
         }
     }
@@ -314,6 +333,8 @@ impl Layer {
 
         // let all the pict-layers draw
         for layer in &self.pict_layers {
+            assert!(layer.is_cached(), "layer not cached");
+
             builder = layer.draw(
                 builder,
                 pipeline.clone(),

@@ -1,4 +1,4 @@
-/* use vulkano::buffer::{BufferUsage, ImmutableBuffer};
+use vulkano::buffer::{BufferUsage, ImmutableBuffer};
 use vulkano::command_buffer::{
     pool::standard::StandardCommandPoolAlloc, AutoCommandBuffer, AutoCommandBufferBuilder,
     CommandBufferExecFuture, DynamicState,
@@ -20,6 +20,7 @@ pub mod renderer;
 
 const FONT_HEIGHT: f32 = 24.0;
 
+// Text layer
 #[derive(Default)]
 pub struct Text {
     pub wireframes: Vec<(i32, i32, i32, i32)>,
@@ -31,6 +32,14 @@ pub struct Text {
 }
 
 impl Text {
+    pub fn new(offset: (i32, i32), size: (i32, i32)) -> Self {
+        Self {
+            offset,
+            size,
+            ..Default::default()
+        }
+    }
+
     pub fn write<S: AsRef<str>>(&mut self, string: S, queue: Arc<Queue>) {
         let string = string.as_ref();
 
@@ -67,4 +76,3 @@ impl Text {
         self.tex_future = Some(f);
     }
 }
-*/

@@ -1,5 +1,7 @@
 use std::io::Read;
 
+pub mod viewport;
+
 pub fn read_i16<R: Read>(mut reader: R) -> std::io::Result<i16> {
     let mut buf = 0_i16.to_le_bytes();
     reader.read_exact(&mut buf)?;

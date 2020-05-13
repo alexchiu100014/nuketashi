@@ -78,7 +78,10 @@ pub struct Vm<R> {
     pub effect_queue: Vec<LayerEffect>,
     pub face_map: HashMap<String, String>,
     pub root_dir: PathBuf,
+    pub animation: Vec<Animation>,
 }
+
+pub struct Animation {}
 
 // constructor
 impl<R> Vm<R>
@@ -90,6 +93,7 @@ where
             reader: BufReader::new(reader),
             draw_calls: vec![],
             effect_queue: vec![],
+            animation: vec![],
             face_map: Default::default(),
             root_dir: "./blob/".into(),
             draw_requested: false,
@@ -214,7 +218,7 @@ impl<R> Vm<R> {
                     y,
                     (&command[7..])
                         .iter()
-                        .map(|e| e.parse::<i32>().unwrap())
+                        .map(|e| e.parse::<i32>().unwrap_or(-1))
                         .collect(),
                 );
             }
@@ -269,7 +273,10 @@ impl<R> Vm<R> {
             origin: (x, y),
         });
     }
+}
 
+// utils
+impl<R> Vm<R> {
     fn lookup_into(&self, filename: &str, dir: &Path) -> Option<PathBuf> {
         for d in std::fs::read_dir(dir) {
             for e in d {
