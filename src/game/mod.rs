@@ -255,7 +255,7 @@ impl<'a> Game<'a> {
 
         layers.resize_with(1, || {
             let mut l = Layer::default();
-            l.load_s25(S25Archive::open("./blob/NUKITASHI_G1.WAR/IKUKO_01M.s25").unwrap());
+            l.load_s25(S25Archive::open("./blob/NUKITASHI_G1.WAR/IKUKO_01M.S25").unwrap());
             l.load_pict_layers(&[1, 6, 2], transfer_queue.clone(), pipeline.clone());
             l
         });
