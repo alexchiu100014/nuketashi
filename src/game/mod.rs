@@ -25,7 +25,7 @@ use crate::constants;
 pub struct Game<'a> {
     pub physical: PhysicalDevice<'a>,
     pub device: Arc<Device>,
-    pub event_loop: EventLoop<()>,
+    pub event_loop: Option<EventLoop<()>>,
     pub surface: Arc<Surface<Window>>,
     pub swapchain: Arc<Swapchain<Window>>,
     pub images: Vec<Arc<SwapchainImage<Window>>>,
@@ -45,7 +45,7 @@ impl Game<'static> {
          * - Create a device
          */
 
-        let event_loop = EventLoop::new();
+        let event_loop = Some(EventLoop::new());
 
         #[cfg(target_os = "macos")]
         unsafe {
@@ -54,7 +54,7 @@ impl Game<'static> {
         }
 
         let physical = Self::create_physical();
-        let surface = Self::create_window(&event_loop);
+        let surface = Self::create_window(event_loop.as_ref().unwrap());
         let (device, graphical_queue, transfer_queue) = Self::create_device(physical, &surface);
 
         let caps = surface.capabilities(physical).unwrap();
@@ -62,13 +62,17 @@ impl Game<'static> {
 
         log::debug!("supported formats: {:?}", caps.supported_formats);
 
-        let (f, cs) = caps.supported_formats.iter()
-                                                .copied()
-                                                .find(|(f, _)| *f == Format::B8G8R8A8Srgb
-                                                                || *f == Format::B8G8R8Srgb
-                                                                || *f == Format::R8G8B8A8Srgb
-                                                                || *f == Format::R8G8B8Srgb)
-                                                .unwrap();
+        let (f, cs) = caps
+            .supported_formats
+            .iter()
+            .copied()
+            .find(|(f, _)| {
+                *f == Format::B8G8R8A8Srgb
+                    || *f == Format::B8G8R8Srgb
+                    || *f == Format::R8G8B8A8Srgb
+                    || *f == Format::R8G8B8Srgb
+            })
+            .unwrap();
 
         let (swapchain, images) = Swapchain::new(
             device.clone(),
@@ -155,12 +159,10 @@ impl<'a> Game<'a> {
             .queue_families()
             .find(|&q| q.supports_graphics() && surface.is_supported(q).unwrap_or(false));
 
-        let tr_queue_family = physical
-            .queue_families()
-            .find(|&q| {
-                (q.supports_graphics() || q.supports_compute()) // VK_QUEUE_TRANSFER_BIT
+        let tr_queue_family = physical.queue_families().find(|&q| {
+            (q.supports_graphics() || q.supports_compute()) // VK_QUEUE_TRANSFER_BIT
                 && gr_queue_family != Some(q) // no overlap
-            });
+        });
 
         let extensions = DeviceExtensions {
             khr_swapchain: true, // swapchain is required
@@ -188,12 +190,12 @@ impl<'a> Game<'a> {
 }
 
 // -- Run-loop execution & event-handling
-impl<'a> Game<'a> {
+impl Game<'static> {
     /// Executes an event loop.
     ///
     /// It takes the ownership of a Game instance, and won't return until
     /// the program is closed.
-    pub fn execute(self) {
+    pub fn execute(mut self) {
         use vulkano::command_buffer::AutoCommandBufferBuilder;
         use vulkano::pipeline::GraphicsPipeline;
         use vulkano::swapchain::{AcquireError, SwapchainCreationError};
@@ -204,21 +206,10 @@ impl<'a> Game<'a> {
 
         use std::time::Instant;
 
-        let Game {
-            physical: _,
-            device,
-            event_loop,
-            surface,
-            mut swapchain,
-            images,
-            graphical_queue,
-            transfer_queue,
-        } = self;
+        let render_pass = pipeline::create_render_pass(self.device.clone(), &self.swapchain);
 
-        let render_pass = pipeline::create_render_pass(device.clone(), &swapchain);
-
-        let vs = crate::game::shaders::pict_layer::vs::Shader::load(device.clone()).unwrap();
-        let fs = crate::game::shaders::pict_layer::fs::Shader::load(device.clone()).unwrap();
+        let vs = crate::game::shaders::pict_layer::vs::Shader::load(self.device.clone()).unwrap();
+        let fs = crate::game::shaders::pict_layer::fs::Shader::load(self.device.clone()).unwrap();
 
         let pipeline = Arc::new(
             GraphicsPipeline::start()
@@ -229,7 +220,7 @@ impl<'a> Game<'a> {
                 .fragment_shader(fs.main_entry_point(), ())
                 .blend_alpha_blending()
                 .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
-                .build(device.clone())
+                .build(self.device.clone())
                 .unwrap(),
         );
 
@@ -243,9 +234,9 @@ impl<'a> Game<'a> {
         };
 
         let mut framebuffers =
-            window_size_dependent_setup(&images, render_pass.clone(), &mut dynamic_state);
+            window_size_dependent_setup(&self.images, render_pass.clone(), &mut dynamic_state);
         let mut previous_frame_end =
-            Some(Box::new(vulkano::sync::now(device.clone())) as Box<dyn GpuFuture>);
+            Some(Box::new(vulkano::sync::now(self.device.clone())) as Box<dyn GpuFuture>);
         let mut recreate_swapchain = false;
 
         let mut last_frame = Instant::now();
@@ -256,7 +247,7 @@ impl<'a> Game<'a> {
         layers.resize_with(1, || {
             let mut l = Layer::default();
             l.load_s25(S25Archive::open("./blob/NUKITASHI_G1.WAR/IKUKO_01M.S25").unwrap());
-            l.load_pict_layers(&[1, 6, 2], transfer_queue.clone(), pipeline.clone());
+            l.load_pict_layers(&[1, 6, 2], self.transfer_queue.clone(), pipeline.clone());
             l
         });
 
@@ -265,13 +256,15 @@ impl<'a> Game<'a> {
         layers
             .iter_mut()
             .fold(
-                Box::new(vulkano::sync::now(device.clone())) as Box<dyn GpuFuture>,
-                |f, l| l.join_future(device.clone(), f),
+                Box::new(vulkano::sync::now(self.device.clone())) as Box<dyn GpuFuture>,
+                |f, l| l.join_future(self.device.clone(), f),
             )
             .flush()
             .unwrap();
 
         log::debug!("uploaded all ikuko");
+
+        let mut event_loop = self.event_loop.take().unwrap();
 
         event_loop.run(move |event, _evt_loop, control_flow| match event {
             Event::WindowEvent {
@@ -288,7 +281,9 @@ impl<'a> Game<'a> {
                 recreate_swapchain = true;
             }
             Event::RedrawRequested(_) => {
-                surface.window().request_redraw();
+                self.perform_redraw();
+
+                self.surface.window().request_redraw();
 
                 let now = Instant::now();
 
@@ -307,9 +302,9 @@ impl<'a> Game<'a> {
 
                 if recreate_swapchain {
                     // Get the new dimensions of the window.
-                    let dimensions: [u32; 2] = surface.window().inner_size().into();
+                    let dimensions: [u32; 2] = self.surface.window().inner_size().into();
                     let (new_swapchain, new_images) =
-                        match swapchain.recreate_with_dimensions(dimensions) {
+                        match self.swapchain.recreate_with_dimensions(dimensions) {
                             Ok(r) => r,
                             // This error tends to happen when the user is manually resizing the window.
                             // Simply restarting the loop is the easiest way to fix this issue.
@@ -317,7 +312,7 @@ impl<'a> Game<'a> {
                             Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
                         };
 
-                    swapchain = new_swapchain;
+                    self.swapchain = new_swapchain;
                     // Because framebuffers contains an Arc on the old swapchain, we need to
                     // recreate framebuffers as well.
                     framebuffers = window_size_dependent_setup(
@@ -329,7 +324,7 @@ impl<'a> Game<'a> {
                 }
 
                 let (image_num, suboptimal, acquire_future) =
-                    match vulkano::swapchain::acquire_next_image(swapchain.clone(), None) {
+                    match vulkano::swapchain::acquire_next_image(self.swapchain.clone(), None) {
                         Ok(r) => r,
                         Err(AcquireError::OutOfDate) => {
                             recreate_swapchain = true;
@@ -343,8 +338,8 @@ impl<'a> Game<'a> {
                 }
 
                 let command_buffer = AutoCommandBufferBuilder::primary_one_time_submit(
-                    device.clone(),
-                    graphical_queue.family(),
+                    self.device.clone(),
+                    self.graphical_queue.family(),
                 )
                 .unwrap()
                 .begin_render_pass(
@@ -365,9 +360,9 @@ impl<'a> Game<'a> {
                     .take()
                     .unwrap()
                     .join(acquire_future)
-                    .then_execute(graphical_queue.clone(), command_buffer)
+                    .then_execute(self.graphical_queue.clone(), command_buffer)
                     .unwrap()
-                    .then_swapchain_present(graphical_queue.clone(), swapchain.clone(), image_num)
+                    .then_swapchain_present(self.graphical_queue.clone(), self.swapchain.clone(), image_num)
                     .then_signal_fence_and_flush();
 
                 match future {
@@ -377,12 +372,12 @@ impl<'a> Game<'a> {
                     Err(FlushError::OutOfDate) => {
                         recreate_swapchain = true;
                         previous_frame_end =
-                            Some(Box::new(vulkano::sync::now(device.clone())) as Box<_>);
+                            Some(Box::new(vulkano::sync::now(self.device.clone())) as Box<_>);
                     }
                     Err(e) => {
                         println!("Failed to flush future: {:?}", e);
                         previous_frame_end =
-                            Some(Box::new(vulkano::sync::now(device.clone())) as Box<_>);
+                            Some(Box::new(vulkano::sync::now(self.device.clone())) as Box<_>);
                     }
                 }
             }
@@ -391,6 +386,8 @@ impl<'a> Game<'a> {
             }
         });
     }
+
+    pub fn perform_redraw(&mut self) {}
 }
 
 use vulkano::framebuffer::{Framebuffer, FramebufferAbstract, RenderPassAbstract, Subpass};

@@ -66,10 +66,7 @@ fn point_unscaled(x: i32, y: i32) -> [f32; 2] {
     const W_COEF: f64 = 2.0 / (crate::constants::GAME_WINDOW_WIDTH as f64);
     const H_COEF: f64 = 2.0 / (crate::constants::GAME_WINDOW_HEIGHT as f64);
 
-    [
-        (x as f64 * W_COEF) as f32,
-        (y as f64 * H_COEF) as f32,
-    ]
+    [(x as f64 * W_COEF) as f32, (y as f64 * H_COEF) as f32]
 }
 
 impl PictLayer {
@@ -183,7 +180,7 @@ impl PictLayer {
                 self.vertex_buffer.clone().unwrap(),
                 self.set.clone().unwrap(),
                 crate::game::shaders::pict_layer::vs::ty::PushConstantData {
-                    offset: point_unscaled(x, y)
+                    offset: point_unscaled(x, y),
                 },
             )
             .unwrap()
@@ -313,7 +310,12 @@ impl Layer {
 
         // let all the pict-layers draw
         for layer in &self.pict_layers {
-            builder = layer.draw(builder, pipeline.clone(), dyn_state, (self.position.0, self.position.1));
+            builder = layer.draw(
+                builder,
+                pipeline.clone(),
+                dyn_state,
+                (self.position.0, self.position.1),
+            );
         }
 
         // TODO: apply overlay

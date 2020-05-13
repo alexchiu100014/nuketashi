@@ -40,6 +40,8 @@ pub fn write_text_in_box(
         .chars()
         .map(|c| match c {
             '\n' => (Some(ControlCharacter::LineFeed), None),
+            // gaiji
+            '①' => (None, Some(font.glyph('♡'))),
             c => (None, Some(font.glyph(c))),
         })
         .scan((None, 0.0, v_metrics.ascent), |state, (c, g)| {

@@ -1,4 +1,4 @@
-pub mod command;
+pub mod state;
 pub mod vm;
 
 #[cfg(test)]
