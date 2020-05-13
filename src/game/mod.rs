@@ -200,7 +200,6 @@ impl Game<'static> {
     /// the program is closed.
     pub fn execute(mut self) {
         use vulkano::command_buffer::AutoCommandBufferBuilder;
-        use vulkano::pipeline::GraphicsPipeline;
         use vulkano::swapchain::{AcquireError, SwapchainCreationError};
         use vulkano::sync::{FlushError, GpuFuture};
 
@@ -213,18 +212,8 @@ impl Game<'static> {
         let vs = crate::game::shaders::pict_layer::vs::Shader::load(self.device.clone()).unwrap();
         let fs = crate::game::shaders::pict_layer::fs::Shader::load(self.device.clone()).unwrap();
 
-        let pipeline = Arc::new(
-            GraphicsPipeline::start()
-                .vertex_input_single_buffer()
-                .vertex_shader(vs.main_entry_point(), ())
-                .triangle_strip()
-                .viewports_dynamic_scissors_irrelevant(1)
-                .fragment_shader(fs.main_entry_point(), ())
-                .blend_alpha_blending()
-                .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
-                .build(self.device.clone())
-                .unwrap(),
-        );
+        let pipeline =
+            pipeline::create_pict_layer_pipeline(self.device.clone(), render_pass.clone());
 
         let mut dynamic_state = DynamicState {
             line_width: None,

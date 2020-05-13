@@ -1,8 +1,8 @@
 use std::sync::Arc;
 use vulkano::device::Device;
 use vulkano::framebuffer::{RenderPassAbstract, Subpass};
-use vulkano::pipeline::{GraphicsPipeline, GraphicsPipelineAbstract};
-use vulkano::swapchain::Swapchain;
+use vulkano::pipeline::{vertex::SingleBufferDefinition, GraphicsPipeline};
+use vulkano::{descriptor::PipelineLayoutAbstract, swapchain::Swapchain};
 
 pub fn create_render_pass<W>(
     device: Arc<Device>,
@@ -28,17 +28,24 @@ pub fn create_render_pass<W>(
     )
 }
 
-pub fn create_pict_layer_pipeline<Rp, V, W>(
+use crate::game::layer::Vertex;
+use crate::game::shaders::pict_layer::{fs, vs};
+
+pub fn create_pict_layer_pipeline<Rp>(
     device: Arc<Device>,
     render_pass: Rp,
-) -> Arc<impl GraphicsPipelineAbstract>
+) -> Arc<
+    GraphicsPipeline<
+        SingleBufferDefinition<Vertex>,
+        Box<dyn PipelineLayoutAbstract + Send + Sync>,
+        Rp,
+    >,
+>
 where
     Rp: RenderPassAbstract,
 {
-    use crate::game::layer::Vertex;
-
-    let vs = crate::game::shaders::pict_layer::vs::Shader::load(device.clone()).unwrap();
-    let fs = crate::game::shaders::pict_layer::fs::Shader::load(device.clone()).unwrap();
+    let vs = vs::Shader::load(device.clone()).unwrap();
+    let fs = fs::Shader::load(device.clone()).unwrap();
 
     Arc::new(
         GraphicsPipeline::start()
@@ -47,6 +54,7 @@ where
             .triangle_strip()
             .viewports_dynamic_scissors_irrelevant(1)
             .fragment_shader(fs.main_entry_point(), ())
+            .blend_alpha_blending()
             .render_pass(Subpass::from(render_pass, 0).unwrap())
             .build(device.clone())
             .unwrap(),
