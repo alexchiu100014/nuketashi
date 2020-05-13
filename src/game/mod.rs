@@ -250,6 +250,9 @@ impl Game<'static> {
 
         let event_loop = self.event_loop.take().unwrap();
 
+        let (mut cur_x, mut cur_y) = (0.0, 0.0);
+        let mut mouse_entered = false;
+
         self.vm.load_command_until_wait().unwrap();
 
         event_loop.run(move |event, _evt_loop, control_flow| match event {
@@ -263,8 +266,29 @@ impl Game<'static> {
                 event: WindowEvent::Resized(_),
                 ..
             } => {
-                println!("resize");
                 recreate_swapchain = true;
+
+                self.vm.request_draw();
+                self.surface.window().request_redraw();
+            }
+            Event::WindowEvent {
+                event: WindowEvent::CursorEntered { .. },
+                ..
+            } => {
+                mouse_entered = true;
+            }
+            Event::WindowEvent {
+                event: WindowEvent::CursorLeft { .. },
+                ..
+            } => {
+                mouse_entered = false;
+            }
+            Event::WindowEvent {
+                event: WindowEvent::CursorMoved { position, .. },
+                ..
+            } => {
+                cur_x = 1600.0 * position.x / self.surface.window().inner_size().width as f64;
+                cur_y = 900.0 * position.y / self.surface.window().inner_size().height as f64;
             }
             Event::DeviceEvent {
                 device_id: _,
@@ -279,35 +303,38 @@ impl Game<'static> {
                     DeviceEvent::Button {
                         state: ElementState::Pressed,
                         ..
-                    } => {
-                        log::debug!("mouse down");
+                    } if mouse_entered => {
+                        log::debug!("mouse down: ({:.1}, {:.1})", cur_x, cur_y);
                     }
                     DeviceEvent::Button {
                         state: ElementState::Released,
                         ..
-                    } => {
-                        log::debug!("mouse up");
+                    } if mouse_entered => {
+                        log::debug!("mouse up: ({:.1}, {:.1})", cur_x, cur_y);
+
                         self.vm.load_command_until_wait().unwrap();
+                        self.surface.window().request_redraw();
                     }
                     _ => {}
                 }
             }
             Event::RedrawRequested(_) => {
-                // TODO:
-                self.perform_redraw();
+                *control_flow = ControlFlow::Wait;
 
-                self.surface.window().request_redraw();
+                // TODO:
+                if !self.vm.draw_requested {
+                    log::debug!("entering wait mode");
+                    return;
+                }
 
                 let now = Instant::now();
                 let commands = self.vm.poll();
 
                 if total_frames > 30 {
-                    if !commands.is_empty() {
-                            log::debug!(
-                            "fps: {:.2}",
-                            (total_frames as f64) / (now - last_frame).as_secs_f64()
-                        );
-                    }
+                    log::debug!(
+                        "fps: {:.2}",
+                        (total_frames as f64) / (now - last_frame).as_secs_f64()
+                    );
                     total_frames = 1;
                     last_frame = now;
                 } else {
@@ -317,7 +344,10 @@ impl Game<'static> {
                 previous_frame_end.as_mut().unwrap().cleanup_finished();
 
                 if commands.is_empty() {
+                    log::debug!("command queue is empty; entering wait mode");
                     return;
+                } else {
+                    log::debug!("commands received: {:?}", commands);
                 }
 
                 for c in commands {
@@ -334,19 +364,24 @@ impl Game<'static> {
                         DrawCall::LayerLoadS25 { layer, path } => {
                             use crate::format::s25::S25Archive;
 
+                            log::debug!("load_s25: {}", layer);
+
                             layers[layer as usize].load_s25(S25Archive::open(path).unwrap());
                         }
                         DrawCall::LayerSetCharacter { layer, pict_layers } => {
+                            log::debug!("load_entries: {}", layer);
+
                             layers[layer as usize].load_pict_layers(
                                 &pict_layers,
                                 self.graphical_queue.clone(),
                                 pipeline.clone(),
                             );
 
-                            previous_frame_end = Some(Box::new(
-                                layers[layer as usize]
-                                    .join_future(self.device.clone(), previous_frame_end.take().unwrap()),
-                            ));
+                            previous_frame_end =
+                                Some(Box::new(layers[layer as usize].join_future(
+                                    self.device.clone(),
+                                    previous_frame_end.take().unwrap(),
+                                )));
                         }
                         _ => {}
                     }

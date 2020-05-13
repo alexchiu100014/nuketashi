@@ -143,6 +143,7 @@ where
 impl<R> Vm<R> {
     pub fn poll(&mut self) -> Vec<DrawCall> {
         if self.draw_requested {
+            self.draw_requested = false;
             std::mem::replace(&mut self.draw_calls, vec![])
         } else {
             vec![]
