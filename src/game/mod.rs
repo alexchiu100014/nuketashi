@@ -242,8 +242,8 @@ impl Game<'static> {
         let mut total_frames = 0usize;
 
         let mut layers = Vec::new();
-        let mut text = Text::new((380, 700), (1000, 160));
-        let mut character_text = Text::new((380, 640), (1000, 160));
+        let mut text = Text::new((380, 700), (950, 160));
+        let mut character_text = Text::new((380, 640), (900, 50));
 
         layers.resize_with(30, Layer::default);
 
@@ -384,9 +384,10 @@ impl Game<'static> {
                                 character_text.write(&character_name, self.graphical_queue.clone());
                                 character_text
                                     .load_gpu(self.graphical_queue.clone(), pipeline_text.clone());
+                            } else {
+                                character_text.clear();
                             }
-                        }
-                        _ => {}
+                        } // _ => {}
                     }
                 }
 

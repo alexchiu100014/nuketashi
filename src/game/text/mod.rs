@@ -7,7 +7,7 @@ use vulkano::command_buffer::{
 };
 use vulkano::descriptor::descriptor_set::{DescriptorSet, PersistentDescriptorSet};
 use vulkano::descriptor::PipelineLayoutAbstract;
-use vulkano::device::{Device, Queue};
+use vulkano::device::Queue;
 use vulkano::format::Format;
 use vulkano::image::{Dimensions, ImmutableImage};
 use vulkano::pipeline::{vertex::VertexSource, GraphicsPipeline, GraphicsPipelineAbstract};
@@ -61,6 +61,18 @@ impl Text {
 
     pub fn is_cached(&self) -> bool {
         self.tex_future.is_none()
+    }
+
+    pub fn clear(&mut self) {
+        self.wireframes.clear();
+        self.cursor = 0.0;
+        self.texture = None;
+        self.tex_future = None;
+        self.vertex_buffer = None;
+        self.vtx_future = None;
+        self.indices_buffer = None;
+        self.idc_future = None;
+        self.set = None;
     }
 
     pub fn write<S: AsRef<str>>(&mut self, string: S, queue: Arc<Queue>) {

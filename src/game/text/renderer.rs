@@ -5,6 +5,8 @@ use rusttype::{point, Font, Scale};
 
 use lazy_static::*;
 
+const FONT_PADDING: f32 = 2.0;
+
 lazy_static! {
     static ref _FONT: Font<'static> =
         { Font::try_from_bytes(FONT_BYTES).expect("error constructing a Font from bytes") };
@@ -44,46 +46,49 @@ pub fn write_text_in_box(
             '①' => (None, Some(font.glyph('♡'))),
             c => (None, Some(font.glyph(c))),
         })
-        .scan((None, 2.0, 2.0 + v_metrics.ascent), |state, (c, g)| {
-            let last = &mut state.0;
-            let x = &mut state.1;
-            let y = &mut state.2;
+        .scan(
+            (None, FONT_PADDING, FONT_PADDING + v_metrics.ascent),
+            |state, (c, g)| {
+                let last = &mut state.0;
+                let x = &mut state.1;
+                let y = &mut state.2;
 
-            match c {
-                Some(ControlCharacter::LineFeed) => {
-                    *x = 0.0;
+                match c {
+                    Some(ControlCharacter::LineFeed) => {
+                        *x = FONT_PADDING;
+                        *y += font_height;
+                        *last = None;
+
+                        return Some(None);
+                    }
+                    _ => {}
+                }
+
+                let g = g.unwrap();
+                let g = g.scaled(scale);
+
+                if let Some(last) = last {
+                    *x += font.pair_kerning(scale, *last, g.id());
+                }
+
+                let w = g.h_metrics().advance_width;
+                let new_x = *x + w;
+
+                *last = Some(g.id());
+
+                if new_x > fwidth {
+                    *x = FONT_PADDING + w;
                     *y += font_height;
                     *last = None;
 
-                    return Some(None);
+                    Some(Some(g.positioned(point(FONT_PADDING, *y))))
+                } else {
+                    let old_x = *x;
+                    *x = new_x;
+                    Some(Some(g.positioned(point(old_x, *y))))
                 }
-                _ => {}
-            }
-
-            let g = g.unwrap();
-            let g = g.scaled(scale);
-
-            if let Some(last) = last {
-                *x += font.pair_kerning(scale, *last, g.id());
-            }
-
-            let w = g.h_metrics().advance_width;
-            let new_x = *x + w;
-
-            *last = Some(g.id());
-
-            if new_x > fwidth {
-                *x = w;
-                *y += font_height;
-                *last = None;
-
-                Some(Some(g.positioned(point(0.0, *y))))
-            } else {
-                let old_x = *x;
-                *x = new_x;
-                Some(Some(g.positioned(point(old_x, *y))))
-            }
-        });
+            },
+        );
 
     for g in layout {
         if let Some(g) = g {
