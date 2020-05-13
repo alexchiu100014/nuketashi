@@ -203,7 +203,7 @@ impl<'a> Game<'a> {
             mut swapchain,
             images,
             graphical_queue,
-            transfer_queue: _,
+            transfer_queue,
         } = self;
 
         let render_pass = pipeline::create_render_pass(device.clone(), &swapchain);
@@ -243,14 +243,26 @@ impl<'a> Game<'a> {
         let mut total_frames = 0usize;
 
         let mut layers = Vec::new();
+
         layers.resize_with(1, || {
             let mut l = Layer::default();
             l.load_s25(S25Archive::open("./blob/NUKITASHI_G1.WAR/IKUKO_01M.s25").unwrap());
-            l.load_pict_layers(&[1, 6, 2], graphical_queue.clone(), pipeline.clone());
+            l.load_pict_layers(&[1, 6, 2], transfer_queue.clone(), pipeline.clone());
             l
         });
 
         log::debug!("loaded all ikuko");
+
+        layers
+            .iter_mut()
+            .fold(
+                Box::new(vulkano::sync::now(device.clone())) as Box<dyn GpuFuture>,
+                |f, l| l.join_future(device.clone(), f),
+            )
+            .flush()
+            .unwrap();
+
+        log::debug!("uploaded all ikuko");
 
         event_loop.run(move |event, _evt_loop, control_flow| match event {
             Event::WindowEvent {
@@ -335,19 +347,15 @@ impl<'a> Game<'a> {
 
                 let mut command_buffer = command_buffer;
                 for l in &mut layers {
-                    command_buffer = l
-                        .draw(command_buffer, pipeline.clone(), &dynamic_state);
+                    command_buffer = l.draw(command_buffer, pipeline.clone(), &dynamic_state);
                 }
 
                 let command_buffer = command_buffer.end_render_pass().unwrap().build().unwrap();
 
-                let future = previous_frame_end.take().unwrap().join(acquire_future);
-
-                let future = layers
-                    .iter_mut()
-                    .fold(Box::new(future) as Box<dyn GpuFuture>, |f, l| {
-                        l.join_future(device.clone(), f)
-                    })
+                let future = previous_frame_end
+                    .take()
+                    .unwrap()
+                    .join(acquire_future)
                     .then_execute(graphical_queue.clone(), command_buffer)
                     .unwrap()
                     .then_swapchain_present(graphical_queue.clone(), swapchain.clone(), image_num)
