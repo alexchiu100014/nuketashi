@@ -58,12 +58,23 @@ impl Game<'static> {
         let (device, graphical_queue, transfer_queue) = Self::create_device(physical, &surface);
 
         let caps = surface.capabilities(physical).unwrap();
+        use vulkano::format::Format;
+
+        log::debug!("supported formats: {:?}", caps.supported_formats);
+
+        let (f, cs) = caps.supported_formats.iter()
+                                                .copied()
+                                                .find(|(f, _)| *f == Format::B8G8R8A8Unorm
+                                                                || *f == Format::B8G8R8Unorm
+                                                                || *f == Format::R8G8B8A8Unorm
+                                                                || *f == Format::R8G8B8Unorm)
+                                                .unwrap();
 
         let (swapchain, images) = Swapchain::new(
             device.clone(),
             surface.clone(),
             caps.min_image_count,
-            caps.supported_formats[0].0,
+            f,
             surface.window().inner_size().into(),
             1,
             caps.supported_usage_flags,
@@ -73,7 +84,7 @@ impl Game<'static> {
             PresentMode::Fifo,
             FullscreenExclusive::Default,
             true,
-            ColorSpace::SrgbNonLinear,
+            cs,
         )
         .expect("failed to create a swapchain");
 
@@ -142,16 +153,14 @@ impl<'a> Game<'a> {
     ) -> (Arc<Device>, Arc<Queue>, Arc<Queue>) {
         let gr_queue_family = physical
             .queue_families()
-            .find(|&q| q.supports_graphics() && surface.is_supported(q).unwrap_or(false))
-            .expect("failed to find a graphical queue family");
+            .find(|&q| q.supports_graphics() && surface.is_supported(q).unwrap_or(false));
 
         let tr_queue_family = physical
             .queue_families()
             .find(|&q| {
                 (q.supports_graphics() || q.supports_compute()) // VK_QUEUE_TRANSFER_BIT
-                && gr_queue_family != q // no overlap
-            })
-            .expect("failed to find a presentation queue family");
+                && gr_queue_family != Some(q) // no overlap
+            });
 
         let extensions = DeviceExtensions {
             khr_swapchain: true, // swapchain is required
@@ -162,15 +171,15 @@ impl<'a> Game<'a> {
             physical,
             physical.supported_features(),
             &extensions,
-            [(gr_queue_family, 1.0), (tr_queue_family, 0.5)]
-                .iter()
-                .cloned(),
+            vec![(gr_queue_family, 1.0), (tr_queue_family, 0.5)]
+                .into_iter()
+                .filter_map(|(v, a)| Some((v?, a))),
         )
         .expect("failed to create device");
 
         // graphics queue and transfer queue
         let gq = q.next().unwrap();
-        let tq = q.next().unwrap();
+        let tq = q.next().unwrap_or_else(|| gq.clone());
 
         log::debug!("created device and queue");
 
