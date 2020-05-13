@@ -15,10 +15,16 @@ https://qruppo.com/
 ## Prerequisites
 
 * Computer with Vulkan capability
-    * Checked on macOS Catalina 10.15.4; MacBook Pro (16-inch, 2019)
+    * Tested primarily on MacBook Pro (16-inch, 2019)
+        * macOS Catalina 10.15.4
         * RAM: 16 GB
         * CPU: Intel Core i7-9750H
         * GPU (discrete): AMD Radeon Pro 5300M 4 GB
+    * Also tested on ThinkPad X260 (but not frequently)
+        * Fedora 32
+        * RAM: 8GB
+        * CPU: Intel Core i5-6200U
+        * GPU (integrated): Intel HD Graphics 520
 * Latest Rust stable compiler
 * All assets extracted under `./blob/`
     * For "nukitashi", use `arc-unpacker` or `GARbro`. We are lazy to implement the extraction/decryption methods.
