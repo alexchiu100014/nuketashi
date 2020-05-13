@@ -64,10 +64,10 @@ impl Game<'static> {
 
         let (f, cs) = caps.supported_formats.iter()
                                                 .copied()
-                                                .find(|(f, _)| *f == Format::B8G8R8A8Unorm
-                                                                || *f == Format::B8G8R8Unorm
-                                                                || *f == Format::R8G8B8A8Unorm
-                                                                || *f == Format::R8G8B8Unorm)
+                                                .find(|(f, _)| *f == Format::B8G8R8A8Srgb
+                                                                || *f == Format::B8G8R8Srgb
+                                                                || *f == Format::R8G8B8A8Srgb
+                                                                || *f == Format::R8G8B8Srgb)
                                                 .unwrap();
 
         let (swapchain, images) = Swapchain::new(

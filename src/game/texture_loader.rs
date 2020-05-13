@@ -36,7 +36,7 @@ pub fn load_s25_image(
             width: w,
             height: h,
         },
-        Format::R8G8B8A8Unorm, // unsigned, normalized
+        Format::R8G8B8A8Srgb, // unsigned, normalized
         queue,
     )
     .expect("failed to load image")
