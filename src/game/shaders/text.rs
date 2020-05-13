@@ -16,19 +16,14 @@ pub mod vs {
         layout(push_constant) uniform PushConstantData {
             vec2  offset;
             float text_cursor;
-            bool  use_cursor;
         } pc;
 
         void main() {
             gl_Position = vec4(pc.offset + position, 0.0, 1.0);
             tex_coords = uv;
-
             float tc = text_count;
 
-            if (pc.use_cursor)
-                text_alpha = clamp(pc.text_cursor - tc, 0.0, 1.0);
-            else
-                text_alpha = 1.0;
+            text_alpha = pc.text_cursor - tc;
         }
         "
     }
@@ -59,7 +54,7 @@ pub mod fs {
                 }
             }
 
-            f_color.a = clamp(alpha, 0.0, 1.0) * text_alpha;
+            f_color.a = clamp(alpha, 0.0, 1.0) * clamp(text_alpha, 0.0, 1.0);
         }
         "
     }

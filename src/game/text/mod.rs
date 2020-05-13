@@ -241,8 +241,11 @@ impl Text {
                     self.set.clone().unwrap(),
                     crate::game::shaders::text::vs::ty::PushConstantData {
                         offset: viewport::point_unscaled(self.offset.0, self.offset.1),
-                        text_cursor: self.cursor,
-                        use_cursor: (self.use_cursor && self.cursor < self.wireframes.len() as f32) as _,
+                        text_cursor: if self.use_cursor {
+                            self.cursor
+                        } else {
+                            1000.0
+                        },
                     },
                 )
                 .unwrap()

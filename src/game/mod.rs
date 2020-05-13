@@ -259,6 +259,7 @@ impl Game<'static> {
         use std::time::Duration;
         use winit::event::StartCause;
 
+        let mut last_time = Instant::now();
         let tick_per_frame = Duration::from_secs_f64(1.0 / 60.0);
 
         event_loop.run(move |event, _evt_loop, control_flow| match event {
@@ -281,10 +282,15 @@ impl Game<'static> {
                 *control_flow = ControlFlow::WaitUntil(Instant::now() + tick_per_frame)
             }
             Event::NewEvents(StartCause::ResumeTimeReached { .. }) => {
+                let now = Instant::now();
+                let delta_time = (now - last_time).as_secs_f32();
                 self.surface.window().request_redraw();
                 self.vm.request_draw();
-                text.cursor += 0.3;
-                *control_flow = ControlFlow::WaitUntil(Instant::now() + tick_per_frame);
+
+                text.cursor += delta_time * 10.0;
+                last_time = now;
+
+                *control_flow = ControlFlow::WaitUntil(now + tick_per_frame);
             }
             Event::WindowEvent {
                 event: WindowEvent::CursorEntered { .. },
