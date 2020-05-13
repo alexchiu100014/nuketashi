@@ -62,6 +62,16 @@ fn point_at(x: i32, y: i32) -> [f32; 2] {
     ]
 }
 
+fn point_unscaled(x: i32, y: i32) -> [f32; 2] {
+    const W_COEF: f64 = 2.0 / (crate::constants::GAME_WINDOW_WIDTH as f64);
+    const H_COEF: f64 = 2.0 / (crate::constants::GAME_WINDOW_HEIGHT as f64);
+
+    [
+        (x as f64 * W_COEF) as f32,
+        (y as f64 * H_COEF) as f32,
+    ]
+}
+
 impl PictLayer {
     pub fn empty() -> Self {
         Self {
@@ -156,6 +166,7 @@ impl PictLayer {
         builder: AutoCommandBufferBuilder,
         pipeline: P,
         dyn_state: &DynamicState,
+        (x, y): (i32, i32),
     ) -> AutoCommandBufferBuilder
     where
         P: GraphicsPipelineAbstract
@@ -171,7 +182,9 @@ impl PictLayer {
                 dyn_state,
                 self.vertex_buffer.clone().unwrap(),
                 self.set.clone().unwrap(),
-                (),
+                crate::game::shaders::pict_layer::vs::ty::PushConstantData {
+                    offset: point_unscaled(x, y)
+                },
             )
             .unwrap()
     }
@@ -274,8 +287,8 @@ impl Layer {
         self.overlay.take();
         self.overlay_future.take();
 
-        // make opacity and overlay_rate zero
-        self.opacity = 0.0;
+        // reset the opacity and overlay_rate
+        self.opacity = 1.0;
         self.overlay_rate = 0.0;
 
         // disable overlay mode
@@ -300,7 +313,7 @@ impl Layer {
 
         // let all the pict-layers draw
         for layer in &self.pict_layers {
-            builder = layer.draw(builder, pipeline.clone(), dyn_state);
+            builder = layer.draw(builder, pipeline.clone(), dyn_state, (self.position.0, self.position.1));
         }
 
         // TODO: apply overlay

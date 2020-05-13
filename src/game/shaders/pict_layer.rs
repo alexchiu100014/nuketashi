@@ -11,8 +11,12 @@ pub mod vs {
 
         layout(location = 0) out  vec2    tex_coords;
 
+        layout(push_constant) uniform PushConstantData {
+            vec2 offset;
+        } pc;
+
         void main() {
-            gl_Position = vec4(position, 0.0, 1.0);
+            gl_Position = vec4(pc.offset + position, 0.0, 1.0);
             tex_coords = uv;
         }
         "
