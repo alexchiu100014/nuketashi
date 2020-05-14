@@ -167,7 +167,7 @@ impl Text {
             vertices.push(Vertex {
                 position: viewport::point_at(x + w, y),
                 uv: viewport::point_unscaled_boxed(x + w, y, self.size.0, self.size.1),
-                text_count: i as f32 + 0.8,
+                text_count: i as f32 + 0.9,
             });
             vertices.push(Vertex {
                 position: viewport::point_at(x, y + h),
@@ -177,7 +177,7 @@ impl Text {
             vertices.push(Vertex {
                 position: viewport::point_at(x + w, y + h),
                 uv: viewport::point_unscaled_boxed(x + w, y + h, self.size.0, self.size.1),
-                text_count: i as f32 + 0.8,
+                text_count: i as f32 + 0.9,
             });
 
             let i_4 = i as u16 * 4;
@@ -241,11 +241,7 @@ impl Text {
                     self.set.clone().unwrap(),
                     crate::game::shaders::text::vs::ty::PushConstantData {
                         offset: viewport::point_unscaled(self.offset.0, self.offset.1),
-                        text_cursor: if self.use_cursor {
-                            self.cursor
-                        } else {
-                            1000.0
-                        },
+                        text_cursor: if self.use_cursor { self.cursor } else { 1000.0 },
                     },
                 )
                 .unwrap()

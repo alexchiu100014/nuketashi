@@ -1,3 +1,5 @@
+// TODO: refactor
+
 pub mod instance;
 pub mod layer;
 pub mod pipeline;
@@ -94,6 +96,17 @@ impl Game<'static> {
         )
         .expect("failed to create a swapchain");
 
+        // Create VM.
+        let mut vm = Vm::new(std::io::Cursor::new({
+            use encoding_rs::SHIFT_JIS;
+            let script = include_bytes!("../../blob/NUKITASHI_T.WAR/04_MH_15.TXT");
+            let (v, _, _) = SHIFT_JIS.decode(script);
+            v.into()
+        }));
+
+        vm.construct_face_map("./blob/NUKITASHI_T.WAR/FAUTOTBL.BIN")
+            .expect("failed to construct facetable");
+
         Game {
             physical,
             device,
@@ -103,12 +116,7 @@ impl Game<'static> {
             images,
             graphical_queue,
             transfer_queue,
-            vm: Vm::new(std::io::Cursor::new({
-                use encoding_rs::SHIFT_JIS;
-                let script = include_bytes!("../../blob/NUKITASHI_T.WAR/04_MH_15.TXT");
-                let (v, _, _) = SHIFT_JIS.decode(script);
-                v.into()
-            })),
+            vm,
         }
     }
 }
@@ -244,6 +252,7 @@ impl Game<'static> {
         let mut layers = Vec::new();
         let mut text = Text::new((380, 700), (950, 160));
         let mut character_text = Text::new((380, 640), (900, 50));
+        let mut face_layer = Layer::default();
 
         text.use_cursor = true;
 
@@ -287,7 +296,9 @@ impl Game<'static> {
                 self.surface.window().request_redraw();
                 self.vm.request_draw();
 
-                text.cursor += delta_time * 10.0;
+                self.vm.tick_animator();
+
+                text.cursor += delta_time * 20.0;
                 last_time = now;
 
                 *control_flow = ControlFlow::WaitUntil(now + tick_per_frame);
@@ -410,15 +421,37 @@ impl Game<'static> {
                             } else {
                                 character_text.clear();
                             }
-                        } // _ => {}
+                        }
+                        DrawCall::FaceLayerClear => {
+                            face_layer.clear_layers();
+                        }
+                        DrawCall::FaceLayerLoadS25 { path } => {
+                            use crate::format::s25::S25Archive;
+
+                            log::debug!("face load_s25");
+                            face_layer.load_s25(S25Archive::open(path).unwrap());
+                        }
+                        DrawCall::FaceLayerSetCharacter { pict_layers } => {
+                            face_layer.load_pict_layers(&pict_layers);
+                        }
+                        _ => {}
                     }
                 }
 
                 for l in &mut layers {
                     l.load_pict_layers_to_gpu(self.graphical_queue.clone(), pipeline.clone());
 
+                    if l.is_cached() {
+                        continue;
+                    }
+
+                    previous_frame_end =
+                        Some(Box::new(l.join_future(previous_frame_end.take().unwrap())));
+                }
+
+                if !face_layer.is_cached() {
                     previous_frame_end = Some(Box::new(
-                        l.join_future(self.device.clone(), previous_frame_end.take().unwrap()),
+                        face_layer.join_future(previous_frame_end.take().unwrap()),
                     ));
                 }
 

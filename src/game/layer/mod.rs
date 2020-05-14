@@ -63,6 +63,10 @@ impl PictLayer {
     }
 
     pub fn is_cached(&self) -> bool {
+        self.vtx_future.is_none()
+    }
+
+    pub fn is_loaded(&self) -> bool {
         self.entry_no == -1 || self.texture.is_some()
     }
 
@@ -191,21 +195,21 @@ impl PictLayer {
         }
     }
 
-    pub fn join_future(&mut self, device: Arc<Device>, future: impl GpuFuture) -> impl GpuFuture {
-        let future = self.join_vtx_future(device.clone(), future);
+    pub fn join_future<'a>(&mut self, future: impl GpuFuture + 'a) -> impl GpuFuture + 'a {
+        let future = self.join_vtx_future(future);
 
         if let Some(f) = self.future.take() {
-            future.join(Box::new(f) as Box<dyn GpuFuture>)
+            Box::new(future.join(f)) as Box<dyn GpuFuture>
         } else {
-            future.join(Box::new(vulkano::sync::now(device)) as Box<dyn GpuFuture>)
+            Box::new(future) as Box<dyn GpuFuture>
         }
     }
 
-    fn join_vtx_future(&mut self, device: Arc<Device>, future: impl GpuFuture) -> impl GpuFuture {
+    fn join_vtx_future<'a>(&mut self, future: impl GpuFuture + 'a) -> impl GpuFuture + 'a {
         if let Some(f) = self.vtx_future.take() {
-            future.join(Box::new(f) as Box<dyn GpuFuture>)
+            Box::new(future.join(f)) as Box<dyn GpuFuture>
         } else {
-            future.join(Box::new(vulkano::sync::now(device)) as Box<dyn GpuFuture>)
+            Box::new(future) as Box<dyn GpuFuture>
         }
     }
 
@@ -279,7 +283,7 @@ impl Layer {
     {
         if let Some(arc) = &mut self.s25_archive {
             for layer in self.pict_layers.iter_mut() {
-                if layer.entry_no == -1 || layer.is_cached() {
+                if layer.entry_no == -1 || layer.is_loaded() {
                     continue;
                 }
 
@@ -349,11 +353,13 @@ impl Layer {
         builder
     }
 
-    pub fn join_future<'a>(
-        &mut self,
-        device: Arc<Device>,
-        future: impl GpuFuture + 'a,
-    ) -> Box<dyn GpuFuture + 'a> {
+    pub fn is_cached(&self) -> bool {
+        self.pict_layers
+            .iter()
+            .fold(true, |b, l| b && l.is_cached())
+    }
+
+    pub fn join_future<'a>(&mut self, future: impl GpuFuture + 'a) -> Box<dyn GpuFuture + 'a> {
         // TODO: ugh, so many boxing...
 
         // let all the pict-layers load
@@ -361,7 +367,7 @@ impl Layer {
 
         for layer in &mut self.pict_layers {
             if layer.has_future() {
-                future = Box::new(layer.join_future(device.clone(), future));
+                future = Box::new(layer.join_future(future));
             }
         }
 

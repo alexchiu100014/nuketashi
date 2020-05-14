@@ -38,20 +38,16 @@ pub enum DrawCall {
     },
     LayerClearOverlay {
         layer: i32,
-    },
+    }, */
     // face layer
-    FaceLayerClear {
-        layer: i32,
-    },
+    FaceLayerClear,
     FaceLayerLoadS25 {
-        layer: i32,
         path: PathBuf,
     },
     FaceLayerSetCharacter {
-        layer: i32,
-        pict_layers: Vec<u32>,
+        pict_layers: Vec<i32>,
     },
-    FaceAnimationEnable,
+    /* FaceAnimationEnable,
     FaceAnimationDisable,
     // fade-overlay
     PushToFadeOverlay,
@@ -164,6 +160,7 @@ where
     }
 }
 
+// draw calls
 impl<R> Vm<R> {
     pub fn poll(&mut self) -> Vec<DrawCall> {
         if self.draw_requested {
@@ -177,6 +174,11 @@ impl<R> Vm<R> {
     pub fn request_draw(&mut self) {
         self.draw_requested = true;
     }
+}
+
+// animator
+impl<R> Vm<R> {
+    pub fn tick_animator(&mut self) {}
 }
 
 // face map and cache

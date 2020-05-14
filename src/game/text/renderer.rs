@@ -93,12 +93,12 @@ pub fn write_text_in_box(
     for g in layout {
         if let Some(g) = g {
             if let Some(bb) = g.pixel_bounding_box() {
-                // expand bounding box
+                // expand bounding box for outline
                 bounding_box.push((
-                    bb.min.x - 8,
-                    bb.min.y - 4,
-                    bb.max.x - bb.min.x + 16,
-                    bb.max.y - bb.min.y + 8,
+                    bb.min.x - 4,
+                    bb.min.y - 8,
+                    bb.max.x - bb.min.x + 8,
+                    bb.max.y - bb.min.y + 16,
                 ));
 
                 g.draw(|x, y, v| {
@@ -146,7 +146,7 @@ fn draw_sample_text() {
     let file = File::create(path).unwrap();
     let ref mut w = BufWriter::new(file);
 
-    let mut buf = vec![0u8; width * height];
+    let mut buf = vec![0u8; width * height * 4];
     write_text_in_box(
         &font,
         48.0,
@@ -156,7 +156,7 @@ fn draw_sample_text() {
     );
 
     let mut encoder = png::Encoder::new(w, width as u32, height as u32);
-    encoder.set_color(png::ColorType::Grayscale);
+    encoder.set_color(png::ColorType::RGBA);
     encoder.set_depth(png::BitDepth::Eight);
     let mut writer = encoder.write_header().unwrap();
     writer.write_image_data(&buf).unwrap();
