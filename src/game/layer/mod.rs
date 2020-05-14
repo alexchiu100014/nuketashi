@@ -9,6 +9,7 @@ use vulkano::descriptor::descriptor_set::{DescriptorSet, PersistentDescriptorSet
 use vulkano::descriptor::PipelineLayoutAbstract;
 use vulkano::device::Queue;
 use vulkano::format::Format;
+use vulkano::framebuffer::RenderPassAbstract;
 use vulkano::image::ImmutableImage;
 use vulkano::pipeline::{vertex::VertexSource, GraphicsPipeline, GraphicsPipelineAbstract};
 use vulkano::sampler::{Filter, MipmapMode, Sampler, SamplerAddressMode};
@@ -282,6 +283,7 @@ impl Layer {
         pipeline: Arc<GraphicsPipeline<Mv, L, Rp>>,
     ) where
         L: PipelineLayoutAbstract,
+        Rp: RenderPassAbstract,
     {
         if let Some(arc) = &mut self.s25_archive {
             for layer in self.pict_layers.iter_mut() {

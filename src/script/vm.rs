@@ -4,6 +4,9 @@ use std::io::{BufRead, BufReader, Read};
 use crate::format::fautotbl;
 use std::path::{Path, PathBuf};
 
+use super::animator::{Animation, Animator};
+use super::state::GameState;
+
 // Draw calls that will be sent to the graphics engine
 #[derive(Debug, Clone)]
 pub enum DrawCall {
@@ -68,22 +71,32 @@ pub enum LayerEffect {
 }
 
 pub struct Vm<R> {
-    // Reader for the script file
+    /// Reader for the script file.
     pub reader: BufReader<R>,
-    // Buffer for draw calls. Flushed when $DRAW or $DRAW_EX called, or dialogue pushed
+    /// Buffer for draw calls. Flushed when $DRAW or $DRAW_EX called, or dialogue pushed.
     pub draw_calls: Vec<DrawCall>,
+    /// A flag for redraw.
     pub draw_requested: bool,
-    // Queue for the layer effect
+    /// Queue for the layer effect.
     pub effect_queue: Vec<LayerEffect>,
-    // Face map.
+    /// Face auto mode.
+    pub face_auto_mode: bool,
+    /// Face map.
     pub face_map: HashMap<String, String>,
-    // Root directory for finding assets
+    /// Face state cache.
+    pub face_state_cache: HashMap<String, Vec<i32>>,
+    /// Root directory for finding assets
     pub root_dir: PathBuf,
+    /// Animator.
+    pub animator: Animator,
+    /// Game state.
+    pub state: GameState,
 }
 
 #[derive(Clone)]
 pub enum VmCommand {
     Draw(DrawCall),
+    Animate(Animation),
 }
 
 // constructor
@@ -97,8 +110,12 @@ where
             draw_calls: vec![],
             effect_queue: vec![],
             face_map: Default::default(),
+            face_state_cache: Default::default(),
             root_dir: "./blob/".into(),
+            face_auto_mode: false,
             draw_requested: false,
+            animator: Animator::default(),
+            state: GameState::new(),
         }
     }
 }
@@ -134,11 +151,26 @@ where
                         .trim_start_matches("【")
                         .trim_end_matches("】");
 
+                    if self.face_auto_mode {
+                        if let Some(n) = self.face_map.get(character_name) {
+                            let n = n.to_ascii_uppercase();
+                            if let Some(e) = self.face_state_cache.get(&n) {
+                                let e = e.clone();
+                                self.load_face(&format!("{}_01F.s25", n), e);
+                            } else {
+                                self.face_clear();
+                            }
+                        } else {
+                            self.face_clear();
+                        }
+                    }
+
                     self.send_draw_call(DrawCall::Dialogue {
                         character_name: Some(character_name.split('/').last().unwrap().into()),
                         dialogue: dialogue_buffer[1..].join(""),
                     });
                 } else {
+                    self.face_clear();
                     self.send_draw_call(DrawCall::Dialogue {
                         character_name: None,
                         dialogue: dialogue_buffer.join(""),
@@ -184,7 +216,9 @@ impl<R> Vm<R> {
 
 // animator
 impl<R> Vm<R> {
-    pub fn tick_animator(&mut self) {}
+    pub fn tick_animator(&mut self) {
+        self.animator.tick();
+    }
 }
 
 // face map and cache
@@ -193,7 +227,7 @@ impl<R> Vm<R> {
         let (face_filenames, face_names) = fautotbl::load_face_map(path)?;
 
         for (a, b) in face_filenames.into_iter().zip(face_names.into_iter()) {
-            self.face_map.insert(a, b);
+            self.face_map.insert(b, a);
         }
 
         Ok(())
@@ -276,7 +310,27 @@ impl<R> Vm<R> {
                     }
                 }
             }
-            // "$FACE" => {}
+            "$FACE_AUTO" => {
+                self.face_state_cache.clear();
+                self.face_auto_mode = command[1] != "0";
+            }
+            "$FACE" => {
+                if command.len() == 1 {
+                    self.face_clear();
+                } else {
+                    let filename: &str = command[1].split('\\').skip(1).next().unwrap();
+
+                    assert_eq!(command[2], "m");
+
+                    self.load_face(
+                        filename,
+                        (&command[3..])
+                            .iter()
+                            .map(|e| e.parse::<i32>().unwrap_or(-1))
+                            .collect(),
+                    );
+                }
+            }
             _ => {}
         }
     }
@@ -284,6 +338,25 @@ impl<R> Vm<R> {
     fn send_draw_call(&mut self, call: DrawCall) {
         log::debug!("draw call: {:?}", call);
         self.draw_calls.push(call);
+    }
+
+    fn load_face(&mut self, filename: &str, entries: Vec<i32>) {
+        // cache face
+        self.face_state_cache
+            .insert(filename.split('_').next().unwrap().into(), entries.clone());
+
+        // send draw command
+        self.send_draw_call(DrawCall::FaceLayerLoadS25 {
+            path: self.lookup(filename),
+        });
+
+        self.send_draw_call(DrawCall::FaceLayerSetCharacter {
+            pict_layers: entries,
+        });
+    }
+
+    fn face_clear(&mut self) {
+        self.send_draw_call(DrawCall::FaceLayerClear);
     }
 
     fn l_clear(&mut self, layer: i32) {
@@ -308,6 +381,11 @@ impl<R> Vm<R> {
     }
 
     fn l_mont(&mut self, layer: i32, filename: &str, x: i32, y: i32, entries: Vec<i32>) {
+        // cache face
+        self.face_state_cache
+            .insert(filename.split('_').next().unwrap().into(), entries.clone());
+
+        // send draw command
         self.send_draw_call(DrawCall::LayerLoadS25 {
             layer,
             path: self.lookup(filename),

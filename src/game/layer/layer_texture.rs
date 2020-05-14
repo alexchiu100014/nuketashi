@@ -1,29 +1,34 @@
 use vulkano::device::Queue;
 use vulkano::format::Format;
 use vulkano::framebuffer::{Framebuffer, RenderPassAbstract};
-use vulkano::image::{Dimensions, StorageImage};
+use vulkano::image::{Dimensions, ImageUsage, StorageImage};
 
 use std::sync::Arc;
+
+pub type LayerTexture = Arc<StorageImage<Format>>;
 
 pub fn create_layer_texture<Rp>(
     viewport: (u32, u32),
     queue: Arc<Queue>,
     render_pass: Rp,
     format: Format,
-) -> (
-    Arc<StorageImage<Format>>,
-    Arc<Framebuffer<Rp, ((), Arc<StorageImage<Format>>)>>,
-)
+) -> (LayerTexture, Arc<Framebuffer<Rp, ((), LayerTexture)>>)
 where
     Rp: RenderPassAbstract,
 {
-    let image = StorageImage::new(
+    let image = StorageImage::with_usage(
         queue.device().clone(),
         Dimensions::Dim2d {
             width: viewport.0,
             height: viewport.1,
         },
         format,
+        ImageUsage {
+            sampled: true,
+            color_attachment: true,
+            input_attachment: true,
+            ..ImageUsage::none()
+        },
         Some(queue.family()),
     )
     .unwrap();

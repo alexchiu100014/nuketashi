@@ -99,7 +99,7 @@ impl Game<'static> {
         // Create VM.
         let mut vm = Vm::new(std::io::Cursor::new({
             use encoding_rs::SHIFT_JIS;
-            let script = include_bytes!("../../blob/NUKITASHI_T.WAR/04_MH_15.TXT");
+            let script = include_bytes!("../../blob/NUKITASHI_T.WAR/02_NK_03.TXT");
             let (v, _, _) = SHIFT_JIS.decode(script);
             v.into()
         }));
@@ -385,6 +385,7 @@ impl Game<'static> {
                 for c in commands {
                     match c {
                         DrawCall::LayerClear { layer } => {
+                            log::debug!("layer clear");
                             layers[layer as usize].clear_layers();
                         }
                         DrawCall::LayerMoveTo {
@@ -423,6 +424,7 @@ impl Game<'static> {
                             }
                         }
                         DrawCall::FaceLayerClear => {
+                            log::debug!("face clear");
                             face_layer.clear_layers();
                         }
                         DrawCall::FaceLayerLoadS25 { path } => {
@@ -432,9 +434,13 @@ impl Game<'static> {
                             face_layer.load_s25(S25Archive::open(path).unwrap());
                         }
                         DrawCall::FaceLayerSetCharacter { pict_layers } => {
+                            log::debug!("face load_entries");
                             face_layer.load_pict_layers(&pict_layers);
-                        }
-                        _ => {}
+                            face_layer.load_pict_layers_to_gpu(
+                                self.graphical_queue.clone(),
+                                pipeline.clone(),
+                            );
+                        } // _ => {}
                     }
                 }
 
@@ -517,6 +523,9 @@ impl Game<'static> {
                 for l in &mut layers {
                     command_buffer = l.draw(command_buffer, pipeline.clone(), &dynamic_state);
                 }
+
+                let command_buffer =
+                    face_layer.draw(command_buffer, pipeline.clone(), &dynamic_state);
 
                 let command_buffer =
                     text.draw(command_buffer, pipeline_text.clone(), &dynamic_state);
