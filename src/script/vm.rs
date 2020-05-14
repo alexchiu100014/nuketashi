@@ -68,16 +68,23 @@ pub enum LayerEffect {
 }
 
 pub struct Vm<R> {
+    // Reader for the script file
     pub reader: BufReader<R>,
+    // Buffer for draw calls. Flushed when $DRAW or $DRAW_EX called, or dialogue pushed
     pub draw_calls: Vec<DrawCall>,
     pub draw_requested: bool,
+    // Queue for the layer effect
     pub effect_queue: Vec<LayerEffect>,
+    // Face map.
     pub face_map: HashMap<String, String>,
+    // Root directory for finding assets
     pub root_dir: PathBuf,
-    pub animation: Vec<Animation>,
 }
 
-pub struct Animation {}
+#[derive(Clone)]
+pub enum VmCommand {
+    Draw(DrawCall),
+}
 
 // constructor
 impl<R> Vm<R>
@@ -89,7 +96,6 @@ where
             reader: BufReader::new(reader),
             draw_calls: vec![],
             effect_queue: vec![],
-            animation: vec![],
             face_map: Default::default(),
             root_dir: "./blob/".into(),
             draw_requested: false,
@@ -247,6 +253,28 @@ impl<R> Vm<R> {
             "$DRAW" => {
                 let _fade_duration: i32 = command[1].parse().unwrap();
                 self.request_draw();
+            }
+            "$A_CHR" => {
+                // animator command
+                match command[1].parse::<i32>().ok() {
+                    Some(2) => {
+                        // BOUNCE_Y
+                    }
+                    Some(128) => {
+                        // MOVE_TO
+                    }
+                    Some(150) => {
+                        // FADE_OUT
+                        // TODO: workaround
+                        self.l_clear(command[2].parse().unwrap());
+                    }
+                    Some(151) => {
+                        // FADE_IN
+                    }
+                    _ => {
+                        // unknown animation command
+                    }
+                }
             }
             // "$FACE" => {}
             _ => {}
