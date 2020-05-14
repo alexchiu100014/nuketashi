@@ -21,7 +21,7 @@ pub type Texture = Arc<ImmutableImage<Format>>;
 
 pub mod renderer;
 
-const FONT_HEIGHT: f32 = 42.0;
+const FONT_HEIGHT: f32 = 44.0;
 
 // Text layer
 #[derive(Default)]
@@ -135,9 +135,9 @@ impl Text {
             Filter::Linear,
             Filter::Linear,
             MipmapMode::Nearest,
-            SamplerAddressMode::Repeat,
-            SamplerAddressMode::Repeat,
-            SamplerAddressMode::Repeat,
+            SamplerAddressMode::ClampToEdge,
+            SamplerAddressMode::ClampToEdge,
+            SamplerAddressMode::ClampToEdge,
             0.0,
             1.0,
             0.0,

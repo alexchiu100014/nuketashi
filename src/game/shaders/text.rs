@@ -48,9 +48,9 @@ pub mod fs {
             
             float alpha = t;
 
-            for (float i = -0.002; i <= 0.002; i += 5.0e-5) {
-                for (float j = -0.006; j <= 0.006; j += 5.0e-5) {
-                    alpha += texture(tex, tex_coords + vec2(i, j)).r;
+            for (int i = -3; i <= 3; i++) {
+                for (int j = -6; j <= 6; j++) {
+                    alpha += texture(tex, tex_coords + vec2(i * 0.9e-3, j * 1.6e-3)).r;
                 }
             }
 
