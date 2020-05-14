@@ -1,3 +1,5 @@
+pub mod layer_texture;
+
 use vulkano::buffer::{BufferUsage, ImmutableBuffer};
 use vulkano::command_buffer::{
     pool::standard::StandardCommandPoolAlloc, AutoCommandBuffer, AutoCommandBufferBuilder,
@@ -5,7 +7,7 @@ use vulkano::command_buffer::{
 };
 use vulkano::descriptor::descriptor_set::{DescriptorSet, PersistentDescriptorSet};
 use vulkano::descriptor::PipelineLayoutAbstract;
-use vulkano::device::{Device, Queue};
+use vulkano::device::Queue;
 use vulkano::format::Format;
 use vulkano::image::ImmutableImage;
 use vulkano::pipeline::{vertex::VertexSource, GraphicsPipeline, GraphicsPipelineAbstract};
