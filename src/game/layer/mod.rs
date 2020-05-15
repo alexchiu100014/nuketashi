@@ -236,6 +236,8 @@ pub struct Layer {
     pub overlay_rate: f32, // [0, 1]
     pub position: (i32, i32),
     pub opacity: f32, // [0, 1]
+    // for optimization
+    is_visible: bool,
 }
 
 impl Layer {
@@ -245,6 +247,9 @@ impl Layer {
                 return Ok(());
             }
         }
+
+        // clear pict-layer
+        self.pict_layers.clear();
 
         // clear layer
         self.clear_layers();
@@ -267,24 +272,31 @@ impl Layer {
             return;
         }
 
+        // set the layer visible
+        self.is_visible = true;
+
         // match the length of pict layers
         self.pict_layers
             .resize_with(pict_layers.len(), PictLayer::empty);
 
         for (i, &entry) in pict_layers.iter().enumerate() {
             let pict_layer = &mut self.pict_layers[i];
+            let entry = if entry == -1 {
+                -1
+            } else {
+                i as i32 * 100 + entry
+            };
+
             // don't reload if the image is the same
             if pict_layer.entry_no == entry {
                 continue;
             }
 
-            pict_layer.entry_no = entry;
-
             // clear the pict-layer
             pict_layer.clear();
 
             // set entry number
-            pict_layer.entry_no = i as i32 * 100 + entry;
+            pict_layer.entry_no = entry;
         }
     }
 
@@ -302,9 +314,13 @@ impl Layer {
                     continue;
                 }
 
+                let entry = layer.entry_no as usize;
+
                 let img = arc
-                    .load_image(layer.entry_no as usize)
-                    .expect("failed to load the image entry");
+                    .load_image(entry)
+                    .unwrap_or_else(|_|
+                        panic!("failed to load the image entry: {}", entry)
+                    );
 
                 layer.load_gpu(img, load_queue.clone(), pipeline.clone());
             }
@@ -318,7 +334,9 @@ impl Layer {
     }
 
     pub fn clear_layers(&mut self) {
-        self.pict_layers.clear();
+        // let the previous image cached
+        // self.pict_layers.clear();
+        self.is_visible = false;
 
         self.overlay.take();
         self.overlay_future.take();
@@ -350,6 +368,10 @@ impl Layer {
             + Clone,
     {
         let mut builder = builder;
+
+        if !self.is_visible {
+            return builder;
+        }
 
         // let all the pict-layers draw
         for layer in &self.pict_layers {
