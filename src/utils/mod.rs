@@ -1,5 +1,6 @@
 use std::io::Read;
 
+pub mod cubic_bezier;
 pub mod viewport;
 
 pub fn read_i16<R: Read>(mut reader: R) -> std::io::Result<i16> {

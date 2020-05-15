@@ -2,6 +2,8 @@
 use super::vm::{DrawCall, VmCommand};
 use std::time::{Duration, Instant};
 
+use crate::utils::cubic_bezier::CubicBezier;
+
 #[derive(Clone, Copy, Debug)]
 pub enum AnimationType {
     LayerPosition { layer: i32, position: (i32, i32) },
@@ -13,6 +15,7 @@ pub enum Easing {
     Linear,
     EaseIn,
     EaseOut,
+    CubicBezier(CubicBezier),
 }
 
 impl Easing {
@@ -20,6 +23,7 @@ impl Easing {
         match self {
             Self::EaseIn => x * x,
             Self::EaseOut => x * (2.0 - x),
+            Self::CubicBezier(b) => b.apply(x),
             _ => x,
         }
     }

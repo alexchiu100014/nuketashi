@@ -173,7 +173,7 @@ where
                     });
                 } else {
                     self.animator.stop_all();
-                    
+
                     self.face_clear();
                     self.send_draw_call(DrawCall::Dialogue {
                         character_name: None,
@@ -206,8 +206,7 @@ where
 impl<R> Vm<R> {
     pub fn poll(&mut self) -> Vec<DrawCall> {
         let cmd = self.animator.poll();
-        let mut draw_calls = 
-        std::mem::replace(&mut self.draw_calls, vec![]);
+        let mut draw_calls = std::mem::replace(&mut self.draw_calls, vec![]);
 
         if !cmd.is_empty() {
             for e in cmd {
@@ -229,7 +228,7 @@ impl<R> Vm<R> {
 
             // animation should go first
             draw_calls.append(&mut self.draw_calls);
-            
+
             draw_calls
         } else {
             vec![]
@@ -281,9 +280,11 @@ impl<R> Vm<R> {
                     if filename == "emo_0_0.s25" {
                         log::warn!("emo_0_0.s25 accompanied by $MOTION command");
                         log::warn!("the image is skipped; there is no way to display this.");
-                        log::warn!("this file is considered to be the initializer for the motion command.");
+                        log::warn!(
+                            "this file is considered to be the initializer for the motion command."
+                        );
                         log::warn!("visit https://github.com/3c1y/nkts for more information.");
-    
+
                         return;
                     }
 
@@ -302,7 +303,9 @@ impl<R> Vm<R> {
                 if filename == "emo_0_0.s25" {
                     log::warn!("emo_0_0.s25 accompanied by $MOTION command");
                     log::warn!("the image is skipped; there is no way to display this.");
-                    log::warn!("this file is considered to be the initializer for the motion command.");
+                    log::warn!(
+                        "this file is considered to be the initializer for the motion command."
+                    );
                     log::warn!("visit https://github.com/3c1y/nkts for more information.");
 
                     return;

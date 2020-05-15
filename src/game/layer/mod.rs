@@ -318,9 +318,7 @@ impl Layer {
 
                 let img = arc
                     .load_image(entry)
-                    .unwrap_or_else(|_|
-                        panic!("failed to load the image entry: {}", entry)
-                    );
+                    .unwrap_or_else(|_| panic!("failed to load the image entry: {}", entry));
 
                 layer.load_gpu(img, load_queue.clone(), pipeline.clone());
             }
