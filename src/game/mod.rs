@@ -150,7 +150,7 @@ impl<'a> Game<'a> {
                 width: constants::GAME_WINDOW_WIDTH,
                 height: constants::GAME_WINDOW_HEIGHT,
             })
-            .with_resizable(false)
+            // .with_resizable(false)
             .build(event_loop)
             .expect("failed to build Window");
 
