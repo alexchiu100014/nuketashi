@@ -15,9 +15,10 @@ use vulkano::pipeline::{vertex::VertexSource, GraphicsPipeline, GraphicsPipeline
 use vulkano::sampler::{Filter, MipmapMode, Sampler, SamplerAddressMode};
 use vulkano::sync::{GpuFuture, NowFuture};
 
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::format::s25::{S25Archive, S25Image};
+use crate::format::s25::{self, S25Archive, S25Image};
 use crate::game::texture_loader;
 use crate::utils::viewport;
 
@@ -225,6 +226,7 @@ impl PictLayer {
 pub struct Layer {
     // S25 archive that corresponds to the layer
     pub s25_archive: Option<S25Archive>,
+    pub s25_path: Option<PathBuf>,
     // parameters for pict layers
     pub pict_layers: Vec<PictLayer>,
     pub overlay: Option<Texture>,
@@ -237,12 +239,21 @@ pub struct Layer {
 }
 
 impl Layer {
-    pub fn load_s25(&mut self, s25: S25Archive) {
+    pub fn load_s25<P: AsRef<Path>>(&mut self, filename: P) -> s25::Result<()> {
+        if let Some(path) = &self.s25_path {
+            if path == filename.as_ref() {
+                return Ok(());
+            }
+        }
+
         // clear layer
         self.clear_layers();
 
         // replace s25 file
-        self.s25_archive = Some(s25);
+        self.s25_path = Some(filename.as_ref().to_path_buf());
+        self.s25_archive = Some(S25Archive::open(filename)?);
+
+        Ok(())
     }
 
     pub fn load_pict_layers(

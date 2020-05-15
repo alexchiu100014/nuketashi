@@ -101,9 +101,9 @@ impl Animation {
             return;
         }
 
-        self.inner = self.easing.apply(
-            (now - self.start_at.unwrap()).as_secs_f64() * self.time_rate
-        );
+        self.inner = self
+            .easing
+            .apply((now - self.start_at.unwrap()).as_secs_f64() * self.time_rate);
     }
 
     pub fn poll(&mut self) -> Vec<VmCommand> {

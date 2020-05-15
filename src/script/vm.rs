@@ -218,9 +218,9 @@ impl<R> Vm<R> {
 impl<R> Vm<R> {
     pub fn tick_animator(&mut self) {
         self.animator.tick();
-        
+
         let cmd = self.animator.poll();
-        
+
         if !cmd.is_empty() {
             for e in cmd {
                 match e {

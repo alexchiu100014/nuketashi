@@ -395,11 +395,9 @@ impl Game<'static> {
                             layers[layer as usize].move_to(x, y);
                         }
                         DrawCall::LayerLoadS25 { layer, path } => {
-                            use crate::format::s25::S25Archive;
-
                             log::debug!("load_s25: {}", layer);
 
-                            layers[layer as usize].load_s25(S25Archive::open(path).unwrap());
+                            layers[layer as usize].load_s25(path).unwrap();
                         }
                         DrawCall::LayerSetCharacter { layer, pict_layers } => {
                             log::debug!("load_entries: {}", layer);
@@ -428,10 +426,8 @@ impl Game<'static> {
                             face_layer.clear_layers();
                         }
                         DrawCall::FaceLayerLoadS25 { path } => {
-                            use crate::format::s25::S25Archive;
-
                             log::debug!("face load_s25");
-                            face_layer.load_s25(S25Archive::open(path).unwrap());
+                            face_layer.load_s25(path).unwrap();
                         }
                         DrawCall::FaceLayerSetCharacter { pict_layers } => {
                             log::debug!("face load_entries");
