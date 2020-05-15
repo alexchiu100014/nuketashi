@@ -93,7 +93,7 @@ pub struct Vm<R> {
     pub state: GameState,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum VmCommand {
     Draw(DrawCall),
     Animate(Animation),
@@ -218,6 +218,23 @@ impl<R> Vm<R> {
 impl<R> Vm<R> {
     pub fn tick_animator(&mut self) {
         self.animator.tick();
+        
+        let cmd = self.animator.poll();
+        
+        if !cmd.is_empty() {
+            for e in cmd {
+                match e {
+                    VmCommand::Animate(a) => {
+                        self.animator.queue(a);
+                    }
+                    VmCommand::Draw(d) => {
+                        self.send_draw_call(d);
+                    }
+                }
+            }
+
+            self.request_draw();
+        }
     }
 }
 
@@ -290,12 +307,43 @@ impl<R> Vm<R> {
             }
             "$A_CHR" => {
                 // animator command
+                use crate::script::animator::{AnimationType, Easing};
+                use std::time::Duration;
+
                 match command[1].parse::<i32>().ok() {
                     Some(2) => {
                         // BOUNCE_Y
                     }
                     Some(128) => {
+                        let layer: i32 = command[2].parse().unwrap();
+
                         // MOVE_TO
+                        let current_pos = self.state.layers[layer as usize].origin;
+                        let new_pos: (i32, i32) =
+                            (command[3].parse().unwrap(), command[4].parse().unwrap());
+                        let msecs = command[5].parse().unwrap();
+                        let easing = match command[6].parse::<i32>().unwrap() {
+                            1 => Easing::EaseOut,
+                            _ => Easing::Linear,
+                        };
+
+                        let anim = Animation::new(
+                            Some(AnimationType::LayerPosition {
+                                layer,
+                                position: current_pos,
+                            }),
+                            AnimationType::LayerPosition {
+                                layer,
+                                position: new_pos,
+                            },
+                            false,
+                            Duration::from_millis(msecs),
+                            easing,
+                        );
+
+                        log::debug!("new animation: {:?}", anim);
+
+                        self.animator.queue(anim);
                     }
                     Some(150) => {
                         // FADE_OUT
@@ -337,6 +385,10 @@ impl<R> Vm<R> {
 
     fn send_draw_call(&mut self, call: DrawCall) {
         log::debug!("draw call: {:?}", call);
+        // send a call to State
+        self.state.send_draw_call(&call);
+
+        // queue for graphics engine
         self.draw_calls.push(call);
     }
 

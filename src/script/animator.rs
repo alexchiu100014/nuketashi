@@ -2,14 +2,30 @@
 use super::vm::{DrawCall, VmCommand};
 use std::time::{Duration, Instant};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum AnimationType {
     LayerPosition { layer: i32, position: (i32, i32) },
     LayerOpacity { layer: i32, opacity: f32 },
     Nothing,
 }
+#[derive(Clone, Copy, Debug)]
+pub enum Easing {
+    Linear,
+    EaseIn,
+    EaseOut,
+}
 
-#[derive(Clone)]
+impl Easing {
+    pub fn apply(self, x: f64) -> f64 {
+        match self {
+            Self::EaseIn => x * x,
+            Self::EaseOut => x * (2.0 - x),
+            _ => x,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct Animation {
     pub anim_from: Option<AnimationType>,
     pub anim_to: AnimationType,
@@ -22,6 +38,7 @@ pub struct Animation {
     inner: f64,
     is_done: bool,
     time_rate: f64,
+    easing: Easing,
 }
 
 impl Animation {
@@ -30,6 +47,7 @@ impl Animation {
         anim_to: AnimationType,
         repeated: bool,
         duration: Duration,
+        easing: Easing,
     ) -> Self {
         Self {
             inner: 0.0,
@@ -43,6 +61,7 @@ impl Animation {
             duration,
             start_at: None,
             end_at: None,
+            easing,
         }
     }
 
@@ -52,6 +71,7 @@ impl Animation {
         let now = Instant::now();
         self.start_at = Some(now);
         self.end_at = Some(now + self.duration);
+        self.is_done = false;
     }
 
     pub fn stop(&mut self) {
@@ -59,6 +79,10 @@ impl Animation {
         self.end_at = None;
         self.inner = 1.0;
         self.is_done = true;
+
+        if let Some(i) = self.interpolate() {
+            self.finally.push(VmCommand::Draw(i));
+        }
     }
 
     pub fn reset(&mut self) {
@@ -77,7 +101,9 @@ impl Animation {
             return;
         }
 
-        self.inner = (now - self.start_at.unwrap()).as_secs_f64() * self.time_rate;
+        self.inner = self.easing.apply(
+            (now - self.start_at.unwrap()).as_secs_f64() * self.time_rate
+        );
     }
 
     pub fn poll(&mut self) -> Vec<VmCommand> {
@@ -96,6 +122,8 @@ impl Animation {
 
             std::mem::replace(&mut self.finally, vec![])
         } else {
+            log::debug!("interpolate");
+
             self.interpolate()
                 .into_iter()
                 .map(|d| VmCommand::Draw(d))
@@ -104,6 +132,8 @@ impl Animation {
     }
 
     pub fn interpolate(&mut self) -> Option<DrawCall> {
+        log::debug!("interpolate");
+
         match (self.anim_from, self.anim_to) {
             (None, _) => {
                 log::error!("animation should have previous state.");
@@ -159,7 +189,11 @@ impl Animation {
 #[derive(Default)]
 pub struct Animator {
     pub animations: Vec<Animation>,
+    pub queued_animations: Vec<Animation>,
+    pub animator_count: usize,
 }
+
+const ANIMATOR_GC_RATE: usize = 100;
 
 impl Animator {
     pub fn tick(&mut self) {
@@ -168,6 +202,26 @@ impl Animator {
         for anim in &mut self.animations {
             anim.tick(now);
         }
+
+        self.animator_count += 1;
+
+        if !self.animations.is_empty() && self.animator_count > ANIMATOR_GC_RATE {
+            log::debug!("anim cleanup");
+
+            let anim = std::mem::replace(&mut self.animations, vec![]);
+            self.animations = anim.into_iter().filter(|a| !a.is_done).collect();
+            self.animator_count = 0;
+        }
+
+        if self.queued_animations.is_empty() {
+            return;
+        }
+
+        for a in &mut self.queued_animations {
+            a.start();
+        }
+
+        self.animations.append(&mut self.queued_animations);
     }
 
     pub fn poll(&mut self) -> Vec<VmCommand> {
@@ -176,5 +230,15 @@ impl Animator {
             v.append(&mut anim.poll());
         }
         v
+    }
+
+    pub fn queue(&mut self, animaton: Animation) {
+        self.queued_animations.push(animaton);
+    }
+
+    pub fn stop_all(&mut self) {
+        for a in &mut self.animations {
+            a.stop();
+        }
     }
 }
