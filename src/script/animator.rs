@@ -14,8 +14,8 @@ pub enum AnimationType {
 impl AnimationType {
     pub fn layer(&self) -> i32 {
         match self {
-            Self::LayerPosition {layer, ..} => *layer,
-            Self::LayerOpacity {layer, ..} => *layer,
+            Self::LayerPosition { layer, .. } => *layer,
+            Self::LayerOpacity { layer, .. } => *layer,
             _ => 0,
         }
     }

@@ -386,11 +386,8 @@ impl<R> Vm<R> {
                             Easing::EaseOut,
                         );
 
-                        anim.finally.push(
-                            VmCommand::Draw(DrawCall::LayerClear {
-                                layer,
-                            })
-                        );
+                        anim.finally
+                            .push(VmCommand::Draw(DrawCall::LayerClear { layer }));
 
                         log::debug!("new animation: {:?}", anim);
 
@@ -400,7 +397,7 @@ impl<R> Vm<R> {
                         let layer: i32 = command[2].parse().unwrap();
                         let msecs = command[3].parse().unwrap();
 
-                        let mut anim = Animation::new(
+                        let anim = Animation::new(
                             Some(AnimationType::LayerOpacity {
                                 layer,
                                 opacity: 0.0,
@@ -425,9 +422,8 @@ impl<R> Vm<R> {
             }
             "$L_DELAY" => {
                 assert_eq!(command[2], "T");
-                let layer: i32 = command[1].parse().unwrap();
-                let msecs: i32 = command[3].parse().unwrap();
-
+                let _layer: i32 = command[1].parse().unwrap();
+                let _msecs: i32 = command[3].parse().unwrap();
             }
             "$FACE_AUTO" => {
                 self.face_state_cache.clear();
