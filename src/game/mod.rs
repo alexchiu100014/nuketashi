@@ -271,6 +271,8 @@ impl Game<'static> {
         let mut last_time = Instant::now();
         let tick_per_frame = Duration::from_secs_f64(1.0 / 60.0);
 
+        let mut tick_text = true;
+
         event_loop.run(move |event, _evt_loop, control_flow| match event {
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
@@ -298,7 +300,9 @@ impl Game<'static> {
 
                 self.vm.tick_animator();
 
-                text.cursor += delta_time * 20.0;
+                if tick_text {
+                    text.cursor += delta_time * 20.0;
+                }
                 last_time = now;
 
                 *control_flow = ControlFlow::WaitUntil(now + tick_per_frame);
@@ -355,6 +359,7 @@ impl Game<'static> {
             }
             Event::RedrawRequested(_) => {
                 // *control_flow = ControlFlow::Wait;
+                tick_text = true;
 
                 // TODO:
                 if !self.vm.draw_requested {
@@ -420,6 +425,8 @@ impl Game<'static> {
                             } else {
                                 character_text.clear();
                             }
+
+                            tick_text = false;
                         }
                         DrawCall::FaceLayerClear => {
                             log::debug!("face clear");
