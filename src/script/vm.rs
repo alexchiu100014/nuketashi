@@ -369,17 +369,65 @@ impl<R> Vm<R> {
                         self.animator.queue(anim);
                     }
                     Some(150) => {
-                        // FADE_OUT
-                        // TODO: workaround
-                        self.l_clear(command[2].parse().unwrap());
+                        let layer: i32 = command[2].parse().unwrap();
+                        let msecs = command[3].parse().unwrap();
+
+                        let mut anim = Animation::new(
+                            Some(AnimationType::LayerOpacity {
+                                layer,
+                                opacity: 1.0,
+                            }),
+                            AnimationType::LayerOpacity {
+                                layer,
+                                opacity: 0.0,
+                            },
+                            false,
+                            Duration::from_millis(msecs),
+                            Easing::EaseOut,
+                        );
+
+                        anim.finally.push(
+                            VmCommand::Draw(DrawCall::LayerClear {
+                                layer,
+                            })
+                        );
+
+                        log::debug!("new animation: {:?}", anim);
+
+                        self.animator.queue(anim);
                     }
                     Some(151) => {
-                        // FADE_IN
+                        let layer: i32 = command[2].parse().unwrap();
+                        let msecs = command[3].parse().unwrap();
+
+                        let mut anim = Animation::new(
+                            Some(AnimationType::LayerOpacity {
+                                layer,
+                                opacity: 0.0,
+                            }),
+                            AnimationType::LayerOpacity {
+                                layer,
+                                opacity: 1.0,
+                            },
+                            false,
+                            Duration::from_millis(msecs),
+                            Easing::EaseOut,
+                        );
+
+                        log::debug!("new animation: {:?}", anim);
+
+                        self.animator.queue(anim);
                     }
                     _ => {
                         // unknown animation command
                     }
                 }
+            }
+            "$L_DELAY" => {
+                assert_eq!(command[2], "T");
+                let layer: i32 = command[1].parse().unwrap();
+                let msecs: i32 = command[3].parse().unwrap();
+
             }
             "$FACE_AUTO" => {
                 self.face_state_cache.clear();

@@ -10,6 +10,17 @@ pub enum AnimationType {
     LayerOpacity { layer: i32, opacity: f32 },
     Nothing,
 }
+
+impl AnimationType {
+    pub fn layer(&self) -> i32 {
+        match self {
+            Self::LayerPosition {layer, ..} => *layer,
+            Self::LayerOpacity {layer, ..} => *layer,
+            _ => 0,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum Easing {
     Linear,

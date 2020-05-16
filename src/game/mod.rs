@@ -268,6 +268,7 @@ impl Game<'static> {
         use std::time::Duration;
         use winit::event::StartCause;
 
+        // TODO: increase frame rate
         let mut last_time = Instant::now();
         let tick_per_frame = Duration::from_secs_f64(1.0 / 60.0);
 
