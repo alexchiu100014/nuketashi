@@ -28,6 +28,10 @@ https://qruppo.com/
 * Latest Rust stable compiler
 * All assets extracted under `./blob/`
     * For "nukitashi", use `arc-unpacker` or `GARbro`. We are lazy to implement the extraction/decryption methods.
+        ```console
+        $ # for arc_unpacker
+        $ ./arc_unpacker --no-recurse --dec=shiina-rio/warc --plugin=nukitashi NUKITASHI_*.WAR
+        ```
     * For "nukitashi2", see https://github.com/morkt/GARbro/issues/376.
     * images should be in `.S25` format so that the metadata is intact.
 * A lot of patience
@@ -37,11 +41,7 @@ https://qruppo.com/
 
 For the command specification and the coverage, see [here](COMMANDS.md).
 
-Some portions of scripts are now running on [`prototyping`](https://github.com/3c1u/nkts/tree/prototyping).
-For prototyping, We use the [`prototyping`](https://github.com/3c1u/nkts/tree/prototyping) branch, which contains
-a PoC for a script play-back using [Piston](https://github.com/PistonDevelopers/piston). We are going to
-ditch Piston later and replace it with a Vulkan/winit-based engine, for the better compability and the portability.
-
+Some portions of scripts are now running. ($L_CHR, $L_MONT, partially $A_CHR).
 We have no clue to *.SCR files, which seem to be responsible for the screen layout.
 
 ## Disclaimer
