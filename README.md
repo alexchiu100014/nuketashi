@@ -27,12 +27,6 @@ https://qruppo.com/
         * GPU (integrated): Intel HD Graphics 520
 * Latest Rust stable compiler
 * All assets extracted under `./blob/`
-    * For "nukitashi", use `arc-unpacker` or `GARbro`. We are lazy to implement the extraction/decryption methods.
-        ```console
-        $ # for arc_unpacker
-        $ ./arc_unpacker --no-recurse --dec=shiina-rio/warc --plugin=nukitashi NUKITASHI_*.WAR
-        ```
-    * For "nukitashi2", see https://github.com/morkt/GARbro/issues/376.
     * images should be in `.S25` format so that the metadata is intact.
 * A lot of patience
     * Seriously...
