@@ -4,7 +4,6 @@ use std::io::{BufRead, BufReader, Read};
 use crate::format::fautotbl;
 use std::path::{Path, PathBuf};
 
-use super::animator::{Animation, Animator};
 use super::state::GameState;
 
 // Draw calls that will be sent to the graphics engine
@@ -87,16 +86,8 @@ pub struct Vm<R> {
     pub face_state_cache: HashMap<String, Vec<i32>>,
     /// Root directory for finding assets
     pub root_dir: PathBuf,
-    /// Animator.
-    pub animator: Animator,
     /// Game state.
     pub state: GameState,
-}
-
-#[derive(Clone, Debug)]
-pub enum VmCommand {
-    Draw(DrawCall),
-    Animate(Animation),
 }
 
 // constructor
@@ -114,7 +105,6 @@ where
             root_dir: "./blob/".into(),
             face_auto_mode: false,
             draw_requested: false,
-            animator: Animator::default(),
             state: GameState::new(),
         }
     }
@@ -165,15 +155,11 @@ where
                         }
                     }
 
-                    self.animator.stop_all();
-
                     self.send_draw_call(DrawCall::Dialogue {
                         character_name: Some(character_name.split('/').last().unwrap().into()),
                         dialogue: dialogue_buffer[1..].join(""),
                     });
                 } else {
-                    self.animator.stop_all();
-
                     self.face_clear();
                     self.send_draw_call(DrawCall::Dialogue {
                         character_name: None,
@@ -205,23 +191,7 @@ where
 // draw calls
 impl<R> Vm<R> {
     pub fn poll(&mut self) -> Vec<DrawCall> {
-        let cmd = self.animator.poll();
         let mut draw_calls = std::mem::replace(&mut self.draw_calls, vec![]);
-
-        if !cmd.is_empty() {
-            for e in cmd {
-                match e {
-                    VmCommand::Animate(a) => {
-                        self.animator.queue(a);
-                    }
-                    VmCommand::Draw(d) => {
-                        self.send_draw_call(d);
-                    }
-                }
-            }
-
-            self.request_draw();
-        }
 
         if self.draw_requested {
             self.draw_requested = false;
@@ -243,7 +213,7 @@ impl<R> Vm<R> {
 // animator
 impl<R> Vm<R> {
     pub fn tick_animator(&mut self) {
-        self.animator.tick();
+        // 
     }
 }
 
@@ -330,90 +300,19 @@ impl<R> Vm<R> {
             }
             "$A_CHR" => {
                 // animator command
-                use crate::script::animator::{AnimationType, Easing};
-                use std::time::Duration;
 
                 match command[1].parse::<i32>().ok() {
                     Some(2) => {
                         // BOUNCE_Y
                     }
                     Some(128) => {
-                        let layer: i32 = command[2].parse().unwrap();
-
-                        // MOVE_TO
-                        let current_pos = self.state.layers[layer as usize].origin;
-                        let new_pos: (i32, i32) =
-                            (command[3].parse().unwrap(), command[4].parse().unwrap());
-                        let msecs = command[5].parse().unwrap();
-                        let easing = match command[6].parse::<i32>().unwrap() {
-                            1 => Easing::EaseOut,
-                            _ => Easing::Linear,
-                        };
-
-                        let anim = Animation::new(
-                            Some(AnimationType::LayerPosition {
-                                layer,
-                                position: current_pos,
-                            }),
-                            AnimationType::LayerPosition {
-                                layer,
-                                position: new_pos,
-                            },
-                            false,
-                            Duration::from_millis(msecs),
-                            easing,
-                        );
-
-                        log::debug!("new animation: {:?}", anim);
-
-                        self.animator.queue(anim);
+                        
                     }
                     Some(150) => {
-                        let layer: i32 = command[2].parse().unwrap();
-                        let msecs = command[3].parse().unwrap();
-
-                        let mut anim = Animation::new(
-                            Some(AnimationType::LayerOpacity {
-                                layer,
-                                opacity: 1.0,
-                            }),
-                            AnimationType::LayerOpacity {
-                                layer,
-                                opacity: 0.0,
-                            },
-                            false,
-                            Duration::from_millis(msecs),
-                            Easing::EaseOut,
-                        );
-
-                        anim.finally
-                            .push(VmCommand::Draw(DrawCall::LayerClear { layer }));
-
-                        log::debug!("new animation: {:?}", anim);
-
-                        self.animator.queue(anim);
+                        
                     }
                     Some(151) => {
-                        let layer: i32 = command[2].parse().unwrap();
-                        let msecs = command[3].parse().unwrap();
-
-                        let anim = Animation::new(
-                            Some(AnimationType::LayerOpacity {
-                                layer,
-                                opacity: 0.0,
-                            }),
-                            AnimationType::LayerOpacity {
-                                layer,
-                                opacity: 1.0,
-                            },
-                            false,
-                            Duration::from_millis(msecs),
-                            Easing::EaseOut,
-                        );
-
-                        log::debug!("new animation: {:?}", anim);
-
-                        self.animator.queue(anim);
+                        
                     }
                     _ => {
                         // unknown animation command

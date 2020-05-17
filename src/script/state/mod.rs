@@ -1,14 +1,9 @@
+pub mod layer;
+
 use crate::script::vm::DrawCall;
 use std::path::PathBuf;
 
-#[derive(Clone, Default)]
-pub struct LayerModel {
-    pub filename: Option<PathBuf>,
-    pub entries: Vec<i32>,
-    pub origin: (i32, i32),
-    pub opacity: f32,
-    pub blur_radius: (i32, i32),
-}
+use layer::LayerModel;
 
 #[derive(Clone, Default)]
 pub struct FaceModel {
