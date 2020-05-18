@@ -113,6 +113,12 @@ impl LayerModel {
                 }
             }
             LayerState::Timer { wait_until } => {
+                // foce finalize
+                if self.finalize_mode {
+                    self.state = LayerState::Idle;
+                    return;
+                }
+
                 // check timer
                 if now < *wait_until {
                     return;
@@ -128,9 +134,7 @@ impl LayerModel {
                 to,
                 easing,
             } => {
-                if now < *start_time {
-                    return;
-                } else if self.finalize_mode || (*start_time + *duration) < now {
+                if self.finalize_mode || (*start_time + *duration) < now {
                     let layer = self.layer_no;
 
                     match to {
@@ -146,10 +150,12 @@ impl LayerModel {
                                 opacity
                             }); */
                         }
-                        _ => unreachable!(),
+                        _ => unreachable!("all animation should be transformed to **To format"),
                     }
 
                     self.state = LayerState::Idle;
+                    return;
+                } else if now < *start_time {
                     return;
                 }
 
@@ -171,7 +177,7 @@ impl LayerModel {
                             opacity
                         }); */
                     }
-                    _ => unreachable!(),
+                    _ => unreachable!("all animation should be transformed to **To format"),
                 }
             }
         }
@@ -184,11 +190,11 @@ impl LayerModel {
         }
 
         loop {
-            // proceed current event
-            self.tick(now, command_buffer);
-
             // generate state
             self.update(now, command_buffer);
+
+            // proceed current event
+            self.tick(now, command_buffer);
 
             if (!self.finalize_mode && LayerState::Idle != self.state)
                 || self.command_queue.is_empty()
@@ -212,11 +218,12 @@ impl LayerModel {
         let layer = self.layer_no;
 
         // if the layer is not ready, ignore
+        // and let the poller finish all the event
         if LayerState::Idle != self.state {
             return;
         }
 
-        // proceed command
+        // process a command
         match self.command_queue.pop_front() {
             Some(LayerCommand::LayerWaitDraw) => {
                 self.state = LayerState::WaitDraw;

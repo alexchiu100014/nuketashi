@@ -120,6 +120,8 @@ where
         let mut buf = String::new();
         let mut dialogue_buffer: Vec<String> = vec![];
 
+        self.stop_all_animations();
+
         loop {
             if self.reader.read_line(&mut buf)? == 0 {
                 // end-of-file
@@ -156,7 +158,6 @@ where
                         }
                     }
 
-                    self.stop_all_animations();
 
                     self.send_draw_call(DrawCall::Dialogue {
                         character_name: Some(character_name.split('/').last().unwrap().into()),
@@ -164,7 +165,6 @@ where
                     });
                 } else {
                     self.face_clear();
-                    self.stop_all_animations();
 
                     self.send_draw_call(DrawCall::Dialogue {
                         character_name: None,
@@ -199,15 +199,12 @@ impl<R> Vm<R> {
         use std::time::Instant;
 
         // poll every layer events
-        let mut draw_calls = vec![];
+        let mut draw_calls = std::mem::replace(&mut self.draw_calls, vec![]);
         let now = Instant::now();
 
         for l in &mut self.state.layers {
             l.poll(now, &mut draw_calls);
         }
-
-        // take out all draw calls
-        draw_calls.append(&mut self.draw_calls);
 
         if self.draw_requested {
             self.draw_requested = false;
@@ -336,12 +333,12 @@ impl<R> Vm<R> {
 
                         for _ in 0..n {
                             self.state.layers[layer as usize].send(LayerCommand::LayerAnimate {
-                                duration: Duration::from_secs_f64(msecs * 1.0e-3),
+                                duration: Duration::from_secs_f64(msecs * 0.5e-3),
                                 easing: Easing::EaseOut,
                                 to: AnimationType::MoveBy(0, dy),
                             });
                             self.state.layers[layer as usize].send(LayerCommand::LayerAnimate {
-                                duration: Duration::from_secs_f64(msecs * 1.0e-3),
+                                duration: Duration::from_secs_f64(msecs * 0.5e-3),
                                 easing: Easing::EaseIn,
                                 to: AnimationType::MoveBy(0, -dy),
                             });
