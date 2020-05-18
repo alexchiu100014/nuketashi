@@ -16,7 +16,7 @@ pub enum DrawCall {
     },
     LayerMoveTo {
         layer: i32,
-        origin: (i32, i32),
+        origin: (f64, f64),
     },
     LayerLoadS25 {
         layer: i32,
@@ -262,8 +262,8 @@ impl<R> Vm<R> {
 
                 if command.len() == 6 {
                     let filename: &str = command[2].split('\\').skip(1).next().unwrap();
-                    let x: i32 = command[3].parse().unwrap();
-                    let y: i32 = command[4].parse().unwrap();
+                    let x: f64 = command[3].parse().unwrap();
+                    let y: f64 = command[4].parse().unwrap();
                     let entry: i32 = command[5].parse().unwrap();
 
                     if filename == "emo_0_0.s25" {
@@ -286,8 +286,8 @@ impl<R> Vm<R> {
                 let layer: i32 = command[1].parse().unwrap();
 
                 let filename: &str = command[2].split('\\').skip(1).next().unwrap();
-                let x: i32 = command[3].parse().unwrap();
-                let y: i32 = command[4].parse().unwrap();
+                let x: f64 = command[3].parse().unwrap();
+                let y: f64 = command[4].parse().unwrap();
 
                 if filename == "emo_0_0.s25" {
                     log::warn!("emo_0_0.s25 accompanied by $MOTION command");
@@ -327,7 +327,7 @@ impl<R> Vm<R> {
                     Some(2) => {
                         // BOUNCE_Y
                         let layer: i32 = command[2].parse().unwrap();
-                        let (n, dy): (i32, i32) =
+                        let (n, dy): (i32, f64) =
                             (command[3].parse().unwrap(), command[4].parse().unwrap());
                         let msecs: f64 = command[5].parse().unwrap();
 
@@ -335,12 +335,12 @@ impl<R> Vm<R> {
                             self.state.layers[layer as usize].send(LayerCommand::LayerAnimate {
                                 duration: Duration::from_secs_f64(msecs * 0.5e-3),
                                 easing: Easing::EaseOut,
-                                to: AnimationType::MoveBy(0, dy),
+                                to: AnimationType::MoveBy(0.0, dy),
                             });
                             self.state.layers[layer as usize].send(LayerCommand::LayerAnimate {
                                 duration: Duration::from_secs_f64(msecs * 0.5e-3),
                                 easing: Easing::EaseIn,
-                                to: AnimationType::MoveBy(0, -dy),
+                                to: AnimationType::MoveBy(0.0, -dy),
                             });
                         }
                     }
@@ -348,7 +348,7 @@ impl<R> Vm<R> {
                         // MOVE_TO
                         let layer: i32 = command[2].parse().unwrap();
 
-                        let (x, y): (i32, i32) =
+                        let (x, y): (f64, f64) =
                             (command[3].parse().unwrap(), command[4].parse().unwrap());
                         let msecs: f64 = command[5].parse().unwrap();
                         let easing = match command[6].parse::<i32>().unwrap() {
@@ -453,7 +453,7 @@ impl<R> Vm<R> {
         layer.send(LayerCommand::LayerClear);
     }
 
-    fn l_chr(&mut self, layer: i32, filename: &str, x: i32, y: i32, entry: i32) {
+    fn l_chr(&mut self, layer: i32, filename: &str, x: f64, y: f64, entry: i32) {
         let filename = self.lookup(filename);
         let layer = &mut self.state.layers[layer as usize];
 
@@ -463,7 +463,7 @@ impl<R> Vm<R> {
         layer.send(LayerCommand::LayerWaitDraw);
     }
 
-    fn l_mont(&mut self, layer: i32, filename: &str, x: i32, y: i32, entries: Vec<i32>) {
+    fn l_mont(&mut self, layer: i32, filename: &str, x: f64, y: f64, entries: Vec<i32>) {
         // cache face
         self.face_state_cache
             .insert(filename.split('_').next().unwrap().into(), entries.clone());

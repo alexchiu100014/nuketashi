@@ -50,8 +50,8 @@ pub struct PictLayer {
     pub entry_no: i32,
     pub texture: Option<Texture>,
     pub future: Option<CommandBufferExecFuture<NowFuture, AutoCommandBuffer>>,
-    pub offset: (i32, i32),
-    pub size: (i32, i32),
+    pub offset: (f64, f64),
+    pub size: (f64, f64),
     pub set: Option<Arc<dyn DescriptorSet + Sync + Send>>,
     pub vertex_buffer: Option<Arc<ImmutableBuffer<[Vertex]>>>,
     pub vtx_future:
@@ -97,8 +97,8 @@ impl PictLayer {
         // load image to GPU
         let device = load_queue.device().clone();
 
-        let offset = (image.metadata.offset_x, image.metadata.offset_y);
-        let size = (image.metadata.width, image.metadata.height);
+        let offset = (image.metadata.offset_x as f64, image.metadata.offset_y as f64);
+        let size = (image.metadata.width as f64, image.metadata.height as f64);
         let (t, f) = texture_loader::load_s25_image(image, load_queue.clone());
 
         self.texture = Some(t.clone());
@@ -135,19 +135,19 @@ impl PictLayer {
             ImmutableBuffer::from_iter(
                 [
                     Vertex {
-                        position: viewport::point_at(self.offset.0, self.offset.1),
+                        position: viewport::f_point_at(self.offset.0, self.offset.1),
                         uv: [0.0, 0.0],
                     },
                     Vertex {
-                        position: viewport::point_at(self.offset.0, self.offset.1 + self.size.1),
+                        position: viewport::f_point_at(self.offset.0, self.offset.1 + self.size.1),
                         uv: [0.0, 1.0],
                     },
                     Vertex {
-                        position: viewport::point_at(self.offset.0 + self.size.0, self.offset.1),
+                        position: viewport::f_point_at(self.offset.0 + self.size.0, self.offset.1),
                         uv: [1.0, 0.0],
                     },
                     Vertex {
-                        position: viewport::point_at(
+                        position: viewport::f_point_at(
                             self.offset.0 + self.size.0,
                             self.offset.1 + self.size.1,
                         ),
@@ -171,7 +171,7 @@ impl PictLayer {
         builder: AutoCommandBufferBuilder,
         pipeline: P,
         dyn_state: &DynamicState,
-        (x, y): (i32, i32),
+        (x, y): (f64, f64),
     ) -> AutoCommandBufferBuilder
     where
         P: GraphicsPipelineAbstract
@@ -190,7 +190,7 @@ impl PictLayer {
                     self.vertex_buffer.clone().unwrap(),
                     self.set.clone().unwrap(),
                     crate::game::shaders::pict_layer::vs::ty::PushConstantData {
-                        offset: viewport::point_unscaled(x, y),
+                        offset: viewport::f_point_unscaled(x, y),
                     },
                 )
                 .unwrap()
@@ -234,7 +234,7 @@ pub struct Layer {
     // value sent to the shader to render
     pub overlay_mode: OverlayMode,
     pub overlay_rate: f32, // [0, 1]
-    pub position: (i32, i32),
+    pub position: (f64, f64),
     pub opacity: f32, // [0, 1]
     // for optimization
     is_visible: bool,
@@ -347,7 +347,7 @@ impl Layer {
         self.overlay_mode = OverlayMode::Disabled;
     }
 
-    pub fn move_to(&mut self, x: i32, y: i32) {
+    pub fn move_to(&mut self, x: f64, y: f64) {
         self.position = (x, y);
     }
 

@@ -13,7 +13,7 @@ pub struct LayerModel {
     pub filename: Option<PathBuf>,
     pub entries: Vec<i32>,
     // layer property
-    pub origin: (i32, i32),
+    pub origin: (f64, f64),
     pub opacity: f32,
     pub blur_radius: (i32, i32),
     // TODO: overlay
@@ -51,8 +51,8 @@ impl Default for LayerState {
 
 #[derive(Clone, PartialEq)]
 pub enum AnimationType {
-    MoveTo(i32, i32),
-    MoveBy(i32, i32),
+    MoveTo(f64, f64),
+    MoveBy(f64, f64),
     Opacity(f32),
 }
 
@@ -63,8 +63,8 @@ impl AnimationType {
 
         match (self, other) {
             (&AnimationType::MoveTo(x_from, y_from), &AnimationType::MoveTo(x_to, y_to)) => {
-                let x = x_to + ((x_from - x_to) as f64 * t) as i32;
-                let y = y_to + ((y_from - y_to) as f64 * t) as i32;
+                let x = x_to + ((x_from - x_to) * t);
+                let y = y_to + ((y_from - y_to) * t);
 
                 AnimationType::MoveTo(x, y)
             }
@@ -84,7 +84,7 @@ pub enum LayerCommand {
     LayerLoadS25(PathBuf),
     LayerLoadEntries(Vec<i32>),
     LayerDelay(Duration),
-    LayerMoveTo(i32, i32),
+    LayerMoveTo(f64, f64),
     LayerOpacity(f32),
     LayerWaitDraw,
     LayerAnimate {
