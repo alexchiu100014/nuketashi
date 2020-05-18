@@ -213,7 +213,7 @@ impl<R> Vm<R> {
 // animator
 impl<R> Vm<R> {
     pub fn tick_animator(&mut self) {
-        // 
+        //
     }
 }
 
@@ -305,15 +305,9 @@ impl<R> Vm<R> {
                     Some(2) => {
                         // BOUNCE_Y
                     }
-                    Some(128) => {
-                        
-                    }
-                    Some(150) => {
-                        
-                    }
-                    Some(151) => {
-                        
-                    }
+                    Some(128) => {}
+                    Some(150) => {}
+                    Some(151) => {}
                     _ => {
                         // unknown animation command
                     }
