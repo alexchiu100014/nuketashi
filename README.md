@@ -47,4 +47,4 @@ and is solely for educational and informational purposes.
 
 Copyright (c) 2020 Hikaru Terazono. All rights reserved.
 
-For licensing, contact [me](mailto:3c1u@vulpesgames.tokyo).
+This program is licensed under either MIT License or Apache License 2.0 at your option.
