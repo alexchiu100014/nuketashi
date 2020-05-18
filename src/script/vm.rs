@@ -4,7 +4,7 @@ use std::io::{BufRead, BufReader, Read};
 use crate::format::fautotbl;
 use std::path::{Path, PathBuf};
 
-use super::animator::{Animation, Animator};
+use super::state::layer::LayerCommand;
 use super::state::GameState;
 
 // Draw calls that will be sent to the graphics engine
@@ -87,16 +87,8 @@ pub struct Vm<R> {
     pub face_state_cache: HashMap<String, Vec<i32>>,
     /// Root directory for finding assets
     pub root_dir: PathBuf,
-    /// Animator.
-    pub animator: Animator,
     /// Game state.
     pub state: GameState,
-}
-
-#[derive(Clone, Debug)]
-pub enum VmCommand {
-    Draw(DrawCall),
-    Animate(Animation),
 }
 
 // constructor
@@ -114,7 +106,6 @@ where
             root_dir: "./blob/".into(),
             face_auto_mode: false,
             draw_requested: false,
-            animator: Animator::default(),
             state: GameState::new(),
         }
     }
@@ -165,16 +156,16 @@ where
                         }
                     }
 
-                    self.animator.stop_all();
+                    self.stop_all_animations();
 
                     self.send_draw_call(DrawCall::Dialogue {
                         character_name: Some(character_name.split('/').last().unwrap().into()),
                         dialogue: dialogue_buffer[1..].join(""),
                     });
                 } else {
-                    self.animator.stop_all();
-
                     self.face_clear();
+                    self.stop_all_animations();
+
                     self.send_draw_call(DrawCall::Dialogue {
                         character_name: None,
                         dialogue: dialogue_buffer.join(""),
@@ -205,30 +196,21 @@ where
 // draw calls
 impl<R> Vm<R> {
     pub fn poll(&mut self) -> Vec<DrawCall> {
-        let cmd = self.animator.poll();
-        let mut draw_calls = std::mem::replace(&mut self.draw_calls, vec![]);
+        use std::time::Instant;
 
-        if !cmd.is_empty() {
-            for e in cmd {
-                match e {
-                    VmCommand::Animate(a) => {
-                        self.animator.queue(a);
-                    }
-                    VmCommand::Draw(d) => {
-                        self.send_draw_call(d);
-                    }
-                }
-            }
+        // poll every layer events
+        let mut draw_calls = vec![];
+        let now = Instant::now();
 
-            self.request_draw();
+        for l in &mut self.state.layers {
+            l.poll(now, &mut draw_calls);
         }
+
+        // take out all draw calls
+        draw_calls.append(&mut self.draw_calls);
 
         if self.draw_requested {
             self.draw_requested = false;
-
-            // animation should go first
-            draw_calls.append(&mut self.draw_calls);
-
             draw_calls
         } else {
             vec![]
@@ -243,7 +225,17 @@ impl<R> Vm<R> {
 // animator
 impl<R> Vm<R> {
     pub fn tick_animator(&mut self) {
-        self.animator.tick();
+        // deprecated.
+    }
+
+    pub fn stop_all_animations(&mut self) {
+        use std::time::Instant;
+        let now = Instant::now();
+
+        for l in &mut self.state.layers {
+            l.finalize();
+            l.poll(now, &mut self.draw_calls);
+        }
     }
 }
 
@@ -330,90 +322,63 @@ impl<R> Vm<R> {
             }
             "$A_CHR" => {
                 // animator command
-                use crate::script::animator::{AnimationType, Easing};
+                use super::state::layer::AnimationType;
+                use crate::utils::easing::Easing;
                 use std::time::Duration;
 
                 match command[1].parse::<i32>().ok() {
                     Some(2) => {
                         // BOUNCE_Y
+                        let layer: i32 = command[2].parse().unwrap();
+                        let (n, dy): (i32, i32) =
+                            (command[3].parse().unwrap(), command[4].parse().unwrap());
+                        let msecs: f64 = command[5].parse().unwrap();
+
+                        for _ in 0..n {
+                            self.state.layers[layer as usize].send(LayerCommand::LayerAnimate {
+                                duration: Duration::from_secs_f64(msecs * 1.0e-3),
+                                easing: Easing::EaseOut,
+                                to: AnimationType::MoveBy(0, dy),
+                            });
+                            self.state.layers[layer as usize].send(LayerCommand::LayerAnimate {
+                                duration: Duration::from_secs_f64(msecs * 1.0e-3),
+                                easing: Easing::EaseIn,
+                                to: AnimationType::MoveBy(0, -dy),
+                            });
+                        }
                     }
                     Some(128) => {
+                        // MOVE_TO
                         let layer: i32 = command[2].parse().unwrap();
 
-                        // MOVE_TO
-                        let current_pos = self.state.layers[layer as usize].origin;
-                        let new_pos: (i32, i32) =
+                        let (x, y): (i32, i32) =
                             (command[3].parse().unwrap(), command[4].parse().unwrap());
-                        let msecs = command[5].parse().unwrap();
+                        let msecs: f64 = command[5].parse().unwrap();
                         let easing = match command[6].parse::<i32>().unwrap() {
                             1 => Easing::EaseOut,
                             _ => Easing::Linear,
                         };
 
-                        let anim = Animation::new(
-                            Some(AnimationType::LayerPosition {
-                                layer,
-                                position: current_pos,
-                            }),
-                            AnimationType::LayerPosition {
-                                layer,
-                                position: new_pos,
-                            },
-                            false,
-                            Duration::from_millis(msecs),
+                        self.state.layers[layer as usize].send(LayerCommand::LayerAnimate {
+                            duration: Duration::from_secs_f64(msecs * 1.0e-3),
                             easing,
-                        );
-
-                        log::debug!("new animation: {:?}", anim);
-
-                        self.animator.queue(anim);
+                            to: AnimationType::MoveTo(x, y),
+                        });
                     }
                     Some(150) => {
+                        // FADE_OUT
                         let layer: i32 = command[2].parse().unwrap();
-                        let msecs = command[3].parse().unwrap();
+                        let msecs: f64 = command[3].parse().unwrap();
 
-                        let mut anim = Animation::new(
-                            Some(AnimationType::LayerOpacity {
-                                layer,
-                                opacity: 1.0,
-                            }),
-                            AnimationType::LayerOpacity {
-                                layer,
-                                opacity: 0.0,
-                            },
-                            false,
-                            Duration::from_millis(msecs),
-                            Easing::EaseOut,
-                        );
-
-                        anim.finally
-                            .push(VmCommand::Draw(DrawCall::LayerClear { layer }));
-
-                        log::debug!("new animation: {:?}", anim);
-
-                        self.animator.queue(anim);
+                        self.state.layers[layer as usize].send(LayerCommand::LayerAnimate {
+                            duration: Duration::from_secs_f64(msecs * 1.0e-3),
+                            easing: Easing::EaseOut,
+                            to: AnimationType::Opacity(0.0),
+                        });
+                        self.state.layers[layer as usize].send(LayerCommand::LayerClear);
                     }
                     Some(151) => {
-                        let layer: i32 = command[2].parse().unwrap();
-                        let msecs = command[3].parse().unwrap();
-
-                        let anim = Animation::new(
-                            Some(AnimationType::LayerOpacity {
-                                layer,
-                                opacity: 0.0,
-                            }),
-                            AnimationType::LayerOpacity {
-                                layer,
-                                opacity: 1.0,
-                            },
-                            false,
-                            Duration::from_millis(msecs),
-                            Easing::EaseOut,
-                        );
-
-                        log::debug!("new animation: {:?}", anim);
-
-                        self.animator.queue(anim);
+                        // FADE_IN
                     }
                     _ => {
                         // unknown animation command
@@ -421,9 +386,15 @@ impl<R> Vm<R> {
                 }
             }
             "$L_DELAY" => {
+                use std::time::Duration;
+
                 assert_eq!(command[2], "T");
-                let _layer: i32 = command[1].parse().unwrap();
-                let _msecs: i32 = command[3].parse().unwrap();
+                let layer: usize = command[1].parse().unwrap();
+                let msecs: f64 = command[3].parse().unwrap();
+
+                self.state.layers[layer].send(LayerCommand::LayerDelay(Duration::from_secs_f64(
+                    msecs * 1.0e-3,
+                )));
             }
             "$FACE_AUTO" => {
                 self.face_state_cache.clear();
@@ -432,6 +403,10 @@ impl<R> Vm<R> {
             "$FACE" => {
                 if command.len() == 1 {
                     self.face_clear();
+                    self.send_draw_call(DrawCall::Dialogue {
+                        character_name: None,
+                        dialogue: "".into(),
+                    });
                 } else {
                     let filename: &str = command[1].split('\\').skip(1).next().unwrap();
 
@@ -452,8 +427,6 @@ impl<R> Vm<R> {
 
     fn send_draw_call(&mut self, call: DrawCall) {
         log::debug!("draw call: {:?}", call);
-        // send a call to State
-        self.state.send_draw_call(&call);
 
         // queue for graphics engine
         self.draw_calls.push(call);
@@ -479,24 +452,18 @@ impl<R> Vm<R> {
     }
 
     fn l_clear(&mut self, layer: i32) {
-        self.send_draw_call(DrawCall::LayerClear { layer });
+        let layer = &mut self.state.layers[layer as usize];
+        layer.send(LayerCommand::LayerClear);
     }
 
     fn l_chr(&mut self, layer: i32, filename: &str, x: i32, y: i32, entry: i32) {
-        self.send_draw_call(DrawCall::LayerLoadS25 {
-            layer,
-            path: self.lookup(filename),
-        });
+        let filename = self.lookup(filename);
+        let layer = &mut self.state.layers[layer as usize];
 
-        self.send_draw_call(DrawCall::LayerSetCharacter {
-            layer,
-            pict_layers: vec![entry],
-        });
-
-        self.send_draw_call(DrawCall::LayerMoveTo {
-            layer,
-            origin: (x, y),
-        });
+        layer.send(LayerCommand::LayerLoadS25(filename));
+        layer.send(LayerCommand::LayerLoadEntries(vec![entry]));
+        layer.send(LayerCommand::LayerMoveTo(x, y));
+        layer.send(LayerCommand::LayerWaitDraw);
     }
 
     fn l_mont(&mut self, layer: i32, filename: &str, x: i32, y: i32, entries: Vec<i32>) {
@@ -505,20 +472,13 @@ impl<R> Vm<R> {
             .insert(filename.split('_').next().unwrap().into(), entries.clone());
 
         // send draw command
-        self.send_draw_call(DrawCall::LayerLoadS25 {
-            layer,
-            path: self.lookup(filename),
-        });
+        let filename = self.lookup(filename);
+        let layer = &mut self.state.layers[layer as usize];
 
-        self.send_draw_call(DrawCall::LayerSetCharacter {
-            layer,
-            pict_layers: entries,
-        });
-
-        self.send_draw_call(DrawCall::LayerMoveTo {
-            layer,
-            origin: (x, y),
-        });
+        layer.send(LayerCommand::LayerLoadS25(filename));
+        layer.send(LayerCommand::LayerLoadEntries(entries));
+        layer.send(LayerCommand::LayerMoveTo(x, y));
+        layer.send(LayerCommand::LayerWaitDraw);
     }
 }
 
