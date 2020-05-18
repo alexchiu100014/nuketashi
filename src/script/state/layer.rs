@@ -69,7 +69,7 @@ impl AnimationType {
                 AnimationType::MoveTo(x, y)
             }
             (&AnimationType::Opacity(from), &AnimationType::Opacity(to)) => {
-                let opacity = from + ((to - from) as f64 * t) as f32;
+                let opacity = to + ((from - to) as f64 * t) as f32;
 
                 AnimationType::Opacity(opacity)
             }
@@ -144,11 +144,11 @@ impl LayerModel {
                                 origin: (x, y),
                             });
                         }
-                        &AnimationType::Opacity(_opacity) => {
-                            /* command_buffer.push(DrawCall::LayerSetOpacity {
+                        &AnimationType::Opacity(opacity) => {
+                            command_buffer.push(DrawCall::LayerOpacity {
                                 layer,
                                 opacity
-                            }); */
+                            });
                         }
                         _ => unreachable!("all animation should be transformed to **To format"),
                     }
@@ -171,11 +171,11 @@ impl LayerModel {
                             origin: (x, y),
                         });
                     }
-                    AnimationType::Opacity(_opacity) => {
-                        /* command_buffer.push(DrawCall::LayerSetOpacity {
+                    AnimationType::Opacity(opacity) => {
+                        command_buffer.push(DrawCall::LayerOpacity {
                             layer,
                             opacity
-                        }); */
+                        });
                     }
                     _ => unreachable!("all animation should be transformed to **To format"),
                 }
@@ -257,7 +257,7 @@ impl LayerModel {
             }
             Some(LayerCommand::LayerOpacity(opacity)) => {
                 self.opacity = opacity;
-                // command_buffer.push(DrawCall::LayerSetOpacity { layer, opacity });
+                command_buffer.push(DrawCall::LayerOpacity { layer, opacity });
             }
             Some(LayerCommand::LayerDelay(t)) => {
                 if self.finalize_mode {

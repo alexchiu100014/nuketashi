@@ -12,7 +12,8 @@ pub mod vs {
         layout(location = 0) out  vec2    tex_coords;
 
         layout(push_constant) uniform PushConstantData {
-            vec2 offset;
+            vec2  offset;
+            float opacity;
         } pc;
 
         void main() {
@@ -34,8 +35,14 @@ pub mod fs {
         layout(location = 0) in   vec2    tex_coords;
         layout(location = 0) out  vec4    f_color;
 
+        layout(push_constant) uniform PushConstantData {
+            vec2  offset;
+            float opacity;
+        } pc;
+
         void main() {
             f_color = texture(tex, tex_coords);
+            f_color.a *= pc.opacity;
         }
         "
     }

@@ -26,11 +26,11 @@ pub enum DrawCall {
         layer: i32,
         pict_layers: Vec<i32>,
     },
-    /* LayerOpacity {
+    LayerOpacity {
         layer: i32,
         opacity: f32,
     },
-    LayerOverlayRate {
+    /* LayerOverlayRate {
         layer: i32,
         rate: f32,
     },
@@ -376,6 +376,22 @@ impl<R> Vm<R> {
                     }
                     Some(151) => {
                         // FADE_IN
+                        let layer: i32 = command[2].parse().unwrap();
+                        let msecs: f64 = command[3].parse().unwrap();
+
+                        // TODO: fade-in workaround
+                        self.draw_calls.push(
+                            DrawCall::LayerOpacity {
+                                layer, opacity: 0.0
+                            }
+                        );
+
+                        self.state.layers[layer as usize].send(LayerCommand::LayerOpacity(0.0));
+                        self.state.layers[layer as usize].send(LayerCommand::LayerAnimate {
+                            duration: Duration::from_secs_f64(msecs * 1.0e-3),
+                            easing: Easing::EaseOut,
+                            to: AnimationType::Opacity(1.0),
+                        });
                     }
                     _ => {
                         // unknown animation command

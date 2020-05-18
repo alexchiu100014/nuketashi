@@ -172,6 +172,7 @@ impl PictLayer {
         pipeline: P,
         dyn_state: &DynamicState,
         (x, y): (f64, f64),
+        opacity: f32,
     ) -> AutoCommandBufferBuilder
     where
         P: GraphicsPipelineAbstract
@@ -191,6 +192,7 @@ impl PictLayer {
                     self.set.clone().unwrap(),
                     crate::game::shaders::pict_layer::vs::ty::PushConstantData {
                         offset: viewport::f_point_unscaled(x, y),
+                        opacity,
                     },
                 )
                 .unwrap()
@@ -380,6 +382,7 @@ impl Layer {
                 pipeline.clone(),
                 dyn_state,
                 (self.position.0, self.position.1),
+                self.opacity,
             );
         }
 

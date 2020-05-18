@@ -411,6 +411,9 @@ impl Game<'static> {
 
                             layers[layer as usize].load_pict_layers(&pict_layers);
                         }
+                        DrawCall::LayerOpacity { layer, opacity } => {
+                            layers[layer as usize].opacity = opacity;
+                        }
                         DrawCall::Dialogue {
                             character_name,
                             dialogue,
