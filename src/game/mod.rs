@@ -414,6 +414,10 @@ impl Game<'static> {
                         DrawCall::LayerOpacity { layer, opacity } => {
                             layers[layer as usize].opacity = opacity;
                         }
+                        DrawCall::LayerBlur { layer, radius } => {
+                            log::debug!("layer blur: {:?}", radius);
+                            layers[layer as usize].blur_radius = radius;
+                        }
                         DrawCall::Dialogue {
                             character_name,
                             dialogue,

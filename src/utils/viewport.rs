@@ -15,7 +15,6 @@ pub fn f_point_at(x: f64, y: f64) -> [f32; 2] {
     ]
 }
 
-
 pub fn f_point_unscaled(x: f64, y: f64) -> [f32; 2] {
     [(x as f64 * W_COEF) as f32, (y as f64 * H_COEF) as f32]
 }

@@ -86,6 +86,7 @@ pub enum LayerCommand {
     LayerDelay(Duration),
     LayerMoveTo(f64, f64),
     LayerOpacity(f32),
+    LayerBlur(i32, i32),
     LayerWaitDraw,
     LayerAnimate {
         duration: Duration,
@@ -145,10 +146,7 @@ impl LayerModel {
                             });
                         }
                         &AnimationType::Opacity(opacity) => {
-                            command_buffer.push(DrawCall::LayerOpacity {
-                                layer,
-                                opacity
-                            });
+                            command_buffer.push(DrawCall::LayerOpacity { layer, opacity });
                         }
                         _ => unreachable!("all animation should be transformed to **To format"),
                     }
@@ -172,10 +170,7 @@ impl LayerModel {
                         });
                     }
                     AnimationType::Opacity(opacity) => {
-                        command_buffer.push(DrawCall::LayerOpacity {
-                            layer,
-                            opacity
-                        });
+                        command_buffer.push(DrawCall::LayerOpacity { layer, opacity });
                     }
                     _ => unreachable!("all animation should be transformed to **To format"),
                 }
@@ -258,6 +253,10 @@ impl LayerModel {
             Some(LayerCommand::LayerOpacity(opacity)) => {
                 self.opacity = opacity;
                 command_buffer.push(DrawCall::LayerOpacity { layer, opacity });
+            }
+            Some(LayerCommand::LayerBlur(x, y)) => {
+                self.blur_radius = (x, y);
+                command_buffer.push(DrawCall::LayerBlur { layer, radius: (x, y) });
             }
             Some(LayerCommand::LayerDelay(t)) => {
                 if self.finalize_mode {

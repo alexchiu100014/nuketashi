@@ -30,6 +30,10 @@ pub enum DrawCall {
         layer: i32,
         opacity: f32,
     },
+    LayerBlur {
+        layer: i32,
+        radius: (i32, i32),
+    },
     /* LayerOverlayRate {
         layer: i32,
         rate: f32,
@@ -68,6 +72,7 @@ pub enum DrawCall {
 #[derive(Clone, Copy)]
 pub enum LayerEffect {
     PpfgBlur { radius: (i32, i32) },
+    Dummy,
 }
 
 pub struct Vm<R> {
@@ -157,7 +162,6 @@ where
                             self.face_clear();
                         }
                     }
-
 
                     self.send_draw_call(DrawCall::Dialogue {
                         character_name: Some(character_name.split('/').last().unwrap().into()),
@@ -261,6 +265,15 @@ impl<R> Vm<R> {
                 let layer_no: i32 = command[1].parse().unwrap();
 
                 if command.len() == 6 {
+                    let blur = self
+                        .effect_queue
+                        .pop()
+                        .unwrap_or(LayerEffect::PpfgBlur { radius: (0, 0) });
+                    if let LayerEffect::PpfgBlur { radius } = blur {
+                        self.state.layers[layer_no as usize]
+                            .send(LayerCommand::LayerBlur(radius.0, radius.1));
+                    }
+
                     let filename: &str = command[2].split('\\').skip(1).next().unwrap();
                     let x: f64 = command[3].parse().unwrap();
                     let y: f64 = command[4].parse().unwrap();
@@ -301,6 +314,16 @@ impl<R> Vm<R> {
                 }
 
                 assert_eq!(command[6], "m");
+
+                let blur = self
+                    .effect_queue
+                    .pop()
+                    .unwrap_or(LayerEffect::PpfgBlur { radius: (0, 0) });
+
+                if let LayerEffect::PpfgBlur { radius } = blur {
+                    self.state.layers[layer as usize]
+                        .send(LayerCommand::LayerBlur(radius.0, radius.1));
+                }
 
                 self.l_mont(
                     layer,
@@ -380,11 +403,10 @@ impl<R> Vm<R> {
                         let msecs: f64 = command[3].parse().unwrap();
 
                         // TODO: fade-in workaround
-                        self.draw_calls.push(
-                            DrawCall::LayerOpacity {
-                                layer, opacity: 0.0
-                            }
-                        );
+                        self.draw_calls.push(DrawCall::LayerOpacity {
+                            layer,
+                            opacity: 0.0,
+                        });
 
                         self.state.layers[layer as usize].send(LayerCommand::LayerOpacity(0.0));
                         self.state.layers[layer as usize].send(LayerCommand::LayerAnimate {
@@ -433,6 +455,12 @@ impl<R> Vm<R> {
                             .collect(),
                     );
                 }
+            }
+            "$EX" => {
+                assert_eq!(command[1], "PPFGBLUR", "unknown command");
+                let (x, y): (i32, i32) = (command[2].parse().unwrap(), command[3].parse().unwrap());
+                self.effect_queue
+                    .push(LayerEffect::PpfgBlur { radius: (x, y) });
             }
             _ => {}
         }

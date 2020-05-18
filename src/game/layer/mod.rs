@@ -97,7 +97,10 @@ impl PictLayer {
         // load image to GPU
         let device = load_queue.device().clone();
 
-        let offset = (image.metadata.offset_x as f64, image.metadata.offset_y as f64);
+        let offset = (
+            image.metadata.offset_x as f64,
+            image.metadata.offset_y as f64,
+        );
         let size = (image.metadata.width as f64, image.metadata.height as f64);
         let (t, f) = texture_loader::load_s25_image(image, load_queue.clone());
 
@@ -173,6 +176,7 @@ impl PictLayer {
         dyn_state: &DynamicState,
         (x, y): (f64, f64),
         opacity: f32,
+        (radius_x, radius_y): (i32, i32),
     ) -> AutoCommandBufferBuilder
     where
         P: GraphicsPipelineAbstract
@@ -193,6 +197,8 @@ impl PictLayer {
                     crate::game::shaders::pict_layer::vs::ty::PushConstantData {
                         offset: viewport::f_point_unscaled(x, y),
                         opacity,
+                        radius_x,
+                        radius_y,
                     },
                 )
                 .unwrap()
@@ -238,6 +244,7 @@ pub struct Layer {
     pub overlay_rate: f32, // [0, 1]
     pub position: (f64, f64),
     pub opacity: f32, // [0, 1]
+    pub blur_radius: (i32, i32),
     // for optimization
     is_visible: bool,
 }
@@ -383,6 +390,7 @@ impl Layer {
                 dyn_state,
                 (self.position.0, self.position.1),
                 self.opacity,
+                self.blur_radius,
             );
         }
 

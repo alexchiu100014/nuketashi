@@ -14,6 +14,8 @@ pub mod vs {
         layout(push_constant) uniform PushConstantData {
             vec2  offset;
             float opacity;
+            int radius_x;
+            int radius_y;
         } pc;
 
         void main() {
@@ -29,6 +31,8 @@ pub mod fs {
         ty: "fragment",
         src: "
         #version 450
+
+        #define PI 3.141592653589793
         
         layout(set = 0, binding = 0) uniform sampler2D tex;
 
@@ -38,11 +42,32 @@ pub mod fs {
         layout(push_constant) uniform PushConstantData {
             vec2  offset;
             float opacity;
+            int radius_x;
+            int radius_y;
         } pc;
+
+        float blur_rate(float x, float y) {
+            float r = x * x + y * y;
+            return exp( - r / 2.0) / sqrt(2.0 * PI);
+        }
 
         void main() {
             f_color = texture(tex, tex_coords);
             f_color.a *= pc.opacity;
+
+            float sum = 1.0;
+
+            for (int i = 0; i < pc.radius_x; i++) {
+                for (int j = 0; j < pc.radius_y; j++) {
+                    float rate = blur_rate(i / float(pc.radius_x), j / float(pc.radius_y));
+                    vec2 delta = vec2(i / 1600.0, j / 900.0);
+                    sum += 2.0 * rate;
+                    f_color.rgb += rate * texture(tex, tex_coords + delta).rgb;
+                    f_color.rgb += rate * texture(tex, tex_coords - delta).rgb;
+                }
+            }
+
+            f_color.rgb /= sum;
         }
         "
     }
