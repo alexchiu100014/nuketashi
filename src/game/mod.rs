@@ -98,10 +98,11 @@ impl Game<'static> {
 
         // Create VM.
         let mut vm = Vm::new(std::io::Cursor::new({
-            use encoding_rs::SHIFT_JIS;
-            let script = include_bytes!("../../blob/NUKITASHI_T.WAR/02_NK_03.TXT");
-            let (v, _, _) = SHIFT_JIS.decode(script);
-            v.into()
+            // use encoding_rs::SHIFT_JIS;
+            // let script = include_bytes!("../../blob/NUKITASHI_T.WAR/01_C_01.copy.TXT");
+            // let (script, _, _) = SHIFT_JIS.decode(script);
+            let script = include_str!("../../blob/___t.WAR/01_C_01.copy.TXT");
+            script.into()
         }));
 
         vm.construct_face_map("./blob/NUKITASHI_T.WAR/FAUTOTBL.BIN")

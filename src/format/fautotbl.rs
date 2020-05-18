@@ -11,8 +11,8 @@ pub fn load_face_map<P: AsRef<Path>>(path: P) -> std::io::Result<(Vec<String>, V
     let fautotbl = File::open(path)?;
     let mut fautotbl = BufReader::new(fautotbl);
 
-    let face_file_offset = utils::read_i32(&mut fautotbl)? as u64;
-    let face_name_offset = utils::read_i32(&mut fautotbl)? as u64;
+    let face_file_offset = utils::io::read_i32(&mut fautotbl)? as u64;
+    let face_name_offset = utils::io::read_i32(&mut fautotbl)? as u64;
 
     let mut face_filenames = Vec::new();
     let mut face_names = Vec::new();
@@ -23,7 +23,7 @@ pub fn load_face_map<P: AsRef<Path>>(path: P) -> std::io::Result<(Vec<String>, V
         let mut filename: [u8; 32] = [0; 32];
 
         fautotbl.read_exact(&mut filename)?;
-        let _face_id = utils::read_i32(&mut fautotbl)?;
+        let _face_id = utils::io::read_i32(&mut fautotbl)?;
 
         // remove zero-padding
         let filename = {
@@ -54,7 +54,7 @@ pub fn load_face_map<P: AsRef<Path>>(path: P) -> std::io::Result<(Vec<String>, V
         let mut name = vec![0u8; 40];
 
         fautotbl.read_exact(&mut name)?;
-        let _face_id = utils::read_i32(&mut fautotbl)?;
+        let _face_id = utils::io::read_i32(&mut fautotbl)?;
 
         // remove zero-padding
         let name = {

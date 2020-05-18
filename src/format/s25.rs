@@ -48,7 +48,7 @@ impl S25Archive<File> {
             return Err(Error::InvalidArchive);
         }
 
-        let total_entries = utils::read_i32(&mut file)?;
+        let total_entries = utils::io::read_i32(&mut file)?;
 
         let mut entries = vec![];
 
@@ -79,7 +79,7 @@ impl<'a> S25Archive<std::io::Cursor<&'a [u8]>> {
             return Err(Error::InvalidArchive);
         }
 
-        let total_entries = utils::read_i32(&mut file)?;
+        let total_entries = utils::io::read_i32(&mut file)?;
 
         let mut entries = vec![];
 
@@ -135,11 +135,11 @@ where
 
         self.file.seek(SeekFrom::Start(offset as u64))?;
 
-        let width = utils::read_i32(&mut self.file)?;
-        let height = utils::read_i32(&mut self.file)?;
-        let offset_x = utils::read_i32(&mut self.file)?;
-        let offset_y = utils::read_i32(&mut self.file)?;
-        let incremental = 0 != (utils::read_i32(&mut self.file)? as u32 & 0x80000000);
+        let width = utils::io::read_i32(&mut self.file)?;
+        let height = utils::io::read_i32(&mut self.file)?;
+        let offset_x = utils::io::read_i32(&mut self.file)?;
+        let offset_y = utils::io::read_i32(&mut self.file)?;
+        let incremental = 0 != (utils::io::read_i32(&mut self.file)? as u32 & 0x80000000);
 
         Ok(S25ImageMetadata {
             width,
@@ -174,7 +174,7 @@ where
         // non-incrementalな画像エントリーをロードする
         let mut rows = Vec::with_capacity(metadata.height as usize);
         for _ in 0..metadata.height {
-            rows.push(utils::read_i32(&mut self.file)? as u32);
+            rows.push(utils::io::read_i32(&mut self.file)? as u32);
         }
 
         let mut offset = 0;
@@ -183,7 +183,7 @@ where
         // すべての行を走査してデコードしていく
         for row_offset in rows {
             self.file.seek(SeekFrom::Start(row_offset as u64))?;
-            let row_length = utils::read_i16(&mut self.file)? as u16;
+            let row_length = utils::io::read_i16(&mut self.file)? as u16;
 
             let row_length = if row_offset & 0x01 != 0 {
                 self.file.read_exact(&mut [0u8])?; // 1バイトだけ読み飛ばす
