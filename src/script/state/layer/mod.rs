@@ -1,9 +1,13 @@
+pub mod animation;
+
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use crate::script::state::DrawCall;
 use crate::utils::easing::Easing;
+
+use animation::{Animation, AnimationType};
 
 #[derive(Clone, Default)]
 pub struct LayerModel {
@@ -32,37 +36,12 @@ pub enum LayerState {
     Idle,
     WaitDraw,
     Timer { wait_until: Instant },
-    /* Animate {
-        start_time: Instant,
-        duration: Duration,
-        rate: f64,
-        from: AnimationType,
-        to: AnimationType,
-        easing: Easing,
-    }, */
-}
-
-#[derive(Clone, PartialEq)]
-pub struct Animation {
-    pub start_time: Instant,
-    pub duration: Duration,
-    pub rate: f64,
-    pub from: AnimationType,
-    pub to: AnimationType,
-    pub easing: Easing,
 }
 
 impl Default for LayerState {
     fn default() -> Self {
         Self::Idle
     }
-}
-
-#[derive(Clone, PartialEq)]
-pub enum AnimationType {
-    MoveTo(f64, f64),
-    MoveBy(f64, f64),
-    Opacity(f32),
 }
 
 impl AnimationType {
@@ -101,6 +80,7 @@ pub enum LayerCommand {
         duration: Duration,
         to: AnimationType,
         easing: Easing,
+        then: Vec<LayerCommand>,
     },
 }
 
@@ -136,6 +116,11 @@ impl LayerModel {
                     }
 
                     self.state = LayerState::Idle;
+
+                    for c in a.then {
+                        self.command_queue.push_back(c);
+                    }
+
                     return None;
                 } else if now < a.start_time {
                     return Some(a);
@@ -286,6 +271,7 @@ impl LayerModel {
                 duration,
                 to,
                 easing,
+                then,
             }) => {
                 let (initial_state, to) = match &to {
                     &AnimationType::MoveTo(x, y) => {
@@ -317,6 +303,7 @@ impl LayerModel {
                     from: initial_state,
                     to,
                     easing,
+                    then,
                 });
             }
             _ => {

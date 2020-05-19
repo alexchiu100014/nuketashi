@@ -342,7 +342,7 @@ impl<R> Vm<R> {
             }
             "$A_CHR" => {
                 // animator command
-                use super::state::layer::AnimationType;
+                use super::state::layer::animation::{AnimationBuilder, AnimationType};
                 use crate::utils::easing::Easing;
                 use std::time::Duration;
 
@@ -354,24 +354,22 @@ impl<R> Vm<R> {
                             (command[3].parse().unwrap(), command[4].parse().unwrap());
                         let msecs: f64 = command[5].parse().unwrap();
 
+                        let mut builder = AnimationBuilder::new();
+
                         for _ in 0..n {
-                            self.state.layers[layer as usize].send(LayerCommand::LayerAnimate {
-                                duration: Duration::from_secs_f64(msecs * 0.5e-3),
-                                easing: Easing::EaseOut,
-                                to: AnimationType::MoveBy(0.0, dy),
-                            });
-                            self.state.layers[layer as usize].send(LayerCommand::LayerDelay(
-                                Duration::from_secs_f64(msecs * 0.5e-3),
-                            ));
-                            self.state.layers[layer as usize].send(LayerCommand::LayerAnimate {
-                                duration: Duration::from_secs_f64(msecs * 0.5e-3),
-                                easing: Easing::EaseIn,
-                                to: AnimationType::MoveBy(0.0, -dy),
-                            });
-                            self.state.layers[layer as usize].send(LayerCommand::LayerDelay(
-                                Duration::from_secs_f64(msecs * 0.5e-3),
-                            ));
+                            builder = builder.next(
+                                Duration::from_secs_f64(msecs * 0.50e-3),
+                                AnimationType::MoveBy(0.0, dy),
+                                Easing::EaseOut,
+                            );
+                            builder = builder.next(
+                                Duration::from_secs_f64(msecs * 0.50e-3),
+                                AnimationType::MoveBy(0.0, -dy),
+                                Easing::EaseOut,
+                            );
                         }
+
+                        builder.build(&mut self.state.layers[layer as usize]);
                     }
                     Some(5) => {
                         // SHAKE
@@ -381,34 +379,29 @@ impl<R> Vm<R> {
                             (command[3].parse().unwrap(), command[4].parse().unwrap());
                         let msecs: f64 = command[5].parse().unwrap();
 
+                        let mut builder = AnimationBuilder::new();
+
                         for i in 0..n {
                             let rate = 1.0 / (1.0 + i as f64);
 
-                            self.state.layers[layer as usize].send(LayerCommand::LayerAnimate {
-                                duration: Duration::from_secs_f64(msecs * 0.25e-3),
-                                easing: Easing::EaseOut,
-                                to: AnimationType::MoveBy(0.0, dy * rate),
-                            });
-                            self.state.layers[layer as usize].send(LayerCommand::LayerDelay(
+                            builder = builder.next(
                                 Duration::from_secs_f64(msecs * 0.25e-3),
-                            ));
-                            self.state.layers[layer as usize].send(LayerCommand::LayerAnimate {
-                                duration: Duration::from_secs_f64(msecs * 0.50e-3),
-                                easing: Easing::EaseIn,
-                                to: AnimationType::MoveBy(0.0, -dy * 2.0 * rate),
-                            });
-                            self.state.layers[layer as usize].send(LayerCommand::LayerDelay(
-                                Duration::from_secs_f64(msecs * 0.5e-3),
-                            ));
-                            self.state.layers[layer as usize].send(LayerCommand::LayerAnimate {
-                                duration: Duration::from_secs_f64(msecs * 0.25e-3),
-                                easing: Easing::EaseOut,
-                                to: AnimationType::MoveBy(0.0, dy * rate),
-                            });
-                            self.state.layers[layer as usize].send(LayerCommand::LayerDelay(
+                                AnimationType::MoveBy(0.0, dy * rate),
+                                Easing::EaseOut,
+                            );
+                            builder = builder.next(
+                                Duration::from_secs_f64(msecs * 0.50e-3),
+                                AnimationType::MoveBy(0.0, -dy * 2.0 * rate),
+                                Easing::EaseOut,
+                            );
+                            builder = builder.next(
                                 Duration::from_secs_f64(msecs * 0.25e-3),
-                            ));
+                                AnimationType::MoveBy(0.0, dy * rate),
+                                Easing::EaseOut,
+                            );
                         }
+
+                        builder.build(&mut self.state.layers[layer as usize]);
                     }
                     Some(128) => {
                         // MOVE_TO
@@ -426,6 +419,7 @@ impl<R> Vm<R> {
                             duration: Duration::from_secs_f64(msecs * 1.0e-3),
                             easing,
                             to: AnimationType::MoveTo(x, y),
+                            then: vec![],
                         });
                     }
                     Some(150) => {
@@ -437,6 +431,7 @@ impl<R> Vm<R> {
                             duration: Duration::from_secs_f64(msecs * 1.0e-3),
                             easing: Easing::EaseOut,
                             to: AnimationType::Opacity(0.0),
+                            then: vec![],
                         });
                         self.state.layers[layer as usize].send(LayerCommand::LayerClear);
                     }
@@ -456,6 +451,7 @@ impl<R> Vm<R> {
                             duration: Duration::from_secs_f64(msecs * 1.0e-3),
                             easing: Easing::EaseOut,
                             to: AnimationType::Opacity(1.0),
+                            then: vec![],
                         });
                     }
                     _ => {
@@ -466,7 +462,9 @@ impl<R> Vm<R> {
             "$L_DELAY" => {
                 use std::time::Duration;
 
-                assert_eq!(command[2], "T");
+                // TODO: 01_C_00.TXT crashed
+                // assert_eq!(command[2], "T");
+
                 let layer: usize = command[1].parse().unwrap();
                 let msecs: f64 = command[3].parse().unwrap();
 

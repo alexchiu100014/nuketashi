@@ -57,17 +57,17 @@ pub mod fs {
 
             float sum = 1.0;
 
-            for (int i = 0; i < pc.radius_x; i++) {
-                for (int j = 0; j < pc.radius_y; j++) {
+            for (int i = 1; i <= pc.radius_x; i++) {
+                for (int j = 1; j <= pc.radius_y; j++) {
                     float rate = blur_rate(i / float(pc.radius_x), j / float(pc.radius_y));
                     vec2 delta = vec2(i / 1600.0, j / 900.0);
                     sum += 2.0 * rate;
-                    f_color.rgb += rate * texture(tex, tex_coords + delta).rgb;
-                    f_color.rgb += rate * texture(tex, tex_coords - delta).rgb;
+                    f_color += rate * texture(tex, tex_coords + delta);
+                    f_color += rate * texture(tex, tex_coords - delta);
                 }
             }
 
-            f_color.rgb /= sum;
+            f_color /= sum;
         }
         "
     }

@@ -98,9 +98,9 @@ impl Game<'static> {
 
         // Create VM.
         let mut vm = Vm::new(std::io::Cursor::new({
-            // use encoding_rs::SHIFT_JIS;
-            // let script = include_bytes!("../../blob/NUKITASHI_T.WAR/01_C_01.copy.TXT");
-            // let (script, _, _) = SHIFT_JIS.decode(script);
+            use encoding_rs::SHIFT_JIS;
+            let script = include_bytes!("../../blob/NUKITASHI_T.WAR/01_C_00.TXT");
+            let (script, _, _) = SHIFT_JIS.decode(script);
             let script = include_str!("../../blob/___t.WAR/01_C_01.copy.TXT");
             script.into()
         }));
