@@ -60,10 +60,16 @@ pub mod fs {
             for (int i = 1; i <= pc.radius_x; i++) {
                 for (int j = 1; j <= pc.radius_y; j++) {
                     float rate = blur_rate(i / float(pc.radius_x), j / float(pc.radius_y));
-                    vec2 delta = vec2(i / 1600.0, j / 900.0);
-                    sum += 2.0 * rate;
+                    vec2 delta = vec2(i / 3200.0, j / 1800.0);
+                    vec2 delta2 = delta;
+
+                    delta2.x = -delta2.x;
+
+                    sum += 4.0 * rate;
                     f_color += rate * texture(tex, tex_coords + delta);
                     f_color += rate * texture(tex, tex_coords - delta);
+                    f_color += rate * texture(tex, tex_coords + delta2);
+                    f_color += rate * texture(tex, tex_coords - delta2);
                 }
             }
 
