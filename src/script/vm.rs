@@ -360,11 +360,54 @@ impl<R> Vm<R> {
                                 easing: Easing::EaseOut,
                                 to: AnimationType::MoveBy(0.0, dy),
                             });
+                            self.state.layers[layer as usize].send(LayerCommand::LayerDelay(
+                                Duration::from_secs_f64(msecs * 0.5e-3),
+                            ));
                             self.state.layers[layer as usize].send(LayerCommand::LayerAnimate {
                                 duration: Duration::from_secs_f64(msecs * 0.5e-3),
                                 easing: Easing::EaseIn,
                                 to: AnimationType::MoveBy(0.0, -dy),
                             });
+                            self.state.layers[layer as usize].send(LayerCommand::LayerDelay(
+                                Duration::from_secs_f64(msecs * 0.5e-3),
+                            ));
+                        }
+                    }
+                    Some(5) => {
+                        // SHAKE
+                        // TODO: document
+                        let layer: i32 = command[2].parse().unwrap();
+                        let (n, dy): (i32, f64) =
+                            (command[3].parse().unwrap(), command[4].parse().unwrap());
+                        let msecs: f64 = command[5].parse().unwrap();
+
+                        for i in 0..n {
+                            let rate = 1.0 / (1.0 + i as f64);
+
+                            self.state.layers[layer as usize].send(LayerCommand::LayerAnimate {
+                                duration: Duration::from_secs_f64(msecs * 0.25e-3),
+                                easing: Easing::EaseOut,
+                                to: AnimationType::MoveBy(0.0, dy * rate),
+                            });
+                            self.state.layers[layer as usize].send(LayerCommand::LayerDelay(
+                                Duration::from_secs_f64(msecs * 0.25e-3),
+                            ));
+                            self.state.layers[layer as usize].send(LayerCommand::LayerAnimate {
+                                duration: Duration::from_secs_f64(msecs * 0.50e-3),
+                                easing: Easing::EaseIn,
+                                to: AnimationType::MoveBy(0.0, -dy * 2.0 * rate),
+                            });
+                            self.state.layers[layer as usize].send(LayerCommand::LayerDelay(
+                                Duration::from_secs_f64(msecs * 0.5e-3),
+                            ));
+                            self.state.layers[layer as usize].send(LayerCommand::LayerAnimate {
+                                duration: Duration::from_secs_f64(msecs * 0.25e-3),
+                                easing: Easing::EaseOut,
+                                to: AnimationType::MoveBy(0.0, dy * rate),
+                            });
+                            self.state.layers[layer as usize].send(LayerCommand::LayerDelay(
+                                Duration::from_secs_f64(msecs * 0.25e-3),
+                            ));
                         }
                     }
                     Some(128) => {
@@ -494,6 +537,7 @@ impl<R> Vm<R> {
 
     fn l_clear(&mut self, layer: i32) {
         let layer = &mut self.state.layers[layer as usize];
+        layer.finalize();
         layer.send(LayerCommand::LayerClear);
     }
 

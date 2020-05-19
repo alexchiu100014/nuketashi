@@ -23,6 +23,7 @@ pub struct LayerModel {
     // inner state
     command_queue: VecDeque<LayerCommand>,
     state: LayerState,
+    animations: Vec<Animation>,
     finalize_mode: bool,
 }
 
@@ -30,17 +31,25 @@ pub struct LayerModel {
 pub enum LayerState {
     Idle,
     WaitDraw,
-    Timer {
-        wait_until: Instant,
-    },
-    Animate {
+    Timer { wait_until: Instant },
+    /* Animate {
         start_time: Instant,
         duration: Duration,
         rate: f64,
         from: AnimationType,
         to: AnimationType,
         easing: Easing,
-    },
+    }, */
+}
+
+#[derive(Clone, PartialEq)]
+pub struct Animation {
+    pub start_time: Instant,
+    pub duration: Duration,
+    pub rate: f64,
+    pub from: AnimationType,
+    pub to: AnimationType,
+    pub easing: Easing,
 }
 
 impl Default for LayerState {
@@ -104,6 +113,57 @@ impl LayerModel {
     }
 
     fn tick(&mut self, now: Instant, command_buffer: &mut Vec<DrawCall>) {
+        // animate
+        let animations = std::mem::replace(&mut self.animations, vec![]);
+
+        self.animations = animations
+            .into_iter()
+            .filter_map(|a| {
+                if self.finalize_mode || (a.start_time + a.duration) < now {
+                    let layer = self.layer_no;
+
+                    match &a.to {
+                        &AnimationType::MoveTo(x, y) => {
+                            command_buffer.push(DrawCall::LayerMoveTo {
+                                layer,
+                                origin: (x, y),
+                            });
+                        }
+                        &AnimationType::Opacity(opacity) => {
+                            command_buffer.push(DrawCall::LayerOpacity { layer, opacity });
+                        }
+                        _ => unreachable!("all animation should be transformed to **To format"),
+                    }
+
+                    self.state = LayerState::Idle;
+                    return None;
+                } else if now < a.start_time {
+                    return Some(a);
+                }
+
+                let delta_time = (now - a.start_time).as_secs_f64();
+                let t = delta_time * a.rate;
+                let res = a.from.interpolate(&a.to, a.easing.apply(t));
+                let layer = self.layer_no;
+
+                match res {
+                    AnimationType::MoveTo(x, y) => {
+                        command_buffer.push(DrawCall::LayerMoveTo {
+                            layer,
+                            origin: (x, y),
+                        });
+                    }
+                    AnimationType::Opacity(opacity) => {
+                        command_buffer.push(DrawCall::LayerOpacity { layer, opacity });
+                    }
+                    _ => unreachable!("all animation should be transformed to **To format"),
+                }
+
+                Some(a)
+            })
+            .collect();
+
+        // state
         match &self.state {
             LayerState::Idle => {
                 // do nothing
@@ -126,54 +186,6 @@ impl LayerModel {
                 }
 
                 self.state = LayerState::Idle;
-            }
-            LayerState::Animate {
-                start_time,
-                duration,
-                rate,
-                from,
-                to,
-                easing,
-            } => {
-                if self.finalize_mode || (*start_time + *duration) < now {
-                    let layer = self.layer_no;
-
-                    match to {
-                        &AnimationType::MoveTo(x, y) => {
-                            command_buffer.push(DrawCall::LayerMoveTo {
-                                layer,
-                                origin: (x, y),
-                            });
-                        }
-                        &AnimationType::Opacity(opacity) => {
-                            command_buffer.push(DrawCall::LayerOpacity { layer, opacity });
-                        }
-                        _ => unreachable!("all animation should be transformed to **To format"),
-                    }
-
-                    self.state = LayerState::Idle;
-                    return;
-                } else if now < *start_time {
-                    return;
-                }
-
-                let delta_time = (now - *start_time).as_secs_f64();
-                let t = delta_time * *rate;
-                let res = from.interpolate(&to, easing.apply(t));
-                let layer = self.layer_no;
-
-                match res {
-                    AnimationType::MoveTo(x, y) => {
-                        command_buffer.push(DrawCall::LayerMoveTo {
-                            layer,
-                            origin: (x, y),
-                        });
-                    }
-                    AnimationType::Opacity(opacity) => {
-                        command_buffer.push(DrawCall::LayerOpacity { layer, opacity });
-                    }
-                    _ => unreachable!("all animation should be transformed to **To format"),
-                }
             }
         }
     }
@@ -256,7 +268,10 @@ impl LayerModel {
             }
             Some(LayerCommand::LayerBlur(x, y)) => {
                 self.blur_radius = (x, y);
-                command_buffer.push(DrawCall::LayerBlur { layer, radius: (x, y) });
+                command_buffer.push(DrawCall::LayerBlur {
+                    layer,
+                    radius: (x, y),
+                });
             }
             Some(LayerCommand::LayerDelay(t)) => {
                 if self.finalize_mode {
@@ -295,14 +310,14 @@ impl LayerModel {
                     }
                 };
 
-                self.state = LayerState::Animate {
+                self.animations.push(Animation {
                     start_time: now,
                     duration,
                     rate: 1.0 / duration.as_secs_f64(),
                     from: initial_state,
                     to,
                     easing,
-                };
+                });
             }
             _ => {
                 // ignore
