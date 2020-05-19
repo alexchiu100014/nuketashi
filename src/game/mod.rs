@@ -101,7 +101,7 @@ impl Game<'static> {
             use encoding_rs::SHIFT_JIS;
             let script = include_bytes!("../../blob/NUKITASHI_T.WAR/01_C_00.TXT");
             let (script, _, _) = SHIFT_JIS.decode(script);
-            let script = include_str!("../../blob/___t.WAR/01_C_01.copy.TXT");
+            // let script = include_str!("../../blob/___t.WAR/01_C_01.copy.TXT");
             script.into()
         }));
 
@@ -492,7 +492,7 @@ impl Game<'static> {
                         match self.swapchain.recreate_with_dimensions(dimensions) {
                             Ok(r) => r,
                             Err(SwapchainCreationError::UnsupportedDimensions) => return,
-                            Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
+                            Err(e) => panic!("failed to recreate swapchain: {:?}", e),
                         };
 
                     self.swapchain = new_swapchain;
@@ -512,7 +512,7 @@ impl Game<'static> {
                             recreate_swapchain = true;
                             return;
                         }
-                        Err(e) => panic!("Failed to acquire next image: {:?}", e),
+                        Err(e) => panic!("failed to acquire next image: {:?}", e),
                     };
 
                 if suboptimal {
@@ -570,7 +570,7 @@ impl Game<'static> {
                             Some(Box::new(vulkano::sync::now(self.device.clone())) as Box<_>);
                     }
                     Err(e) => {
-                        println!("Failed to flush future: {:?}", e);
+                        log::error!("failed to flush future: {:?}", e);
                         previous_frame_end =
                             Some(Box::new(vulkano::sync::now(self.device.clone())) as Box<_>);
                     }
