@@ -7,14 +7,12 @@ use encoding_rs::SHIFT_JIS;
 pub type Emotbl = HashMap<String, EmotblEntry>;
 
 pub struct EmotblEntry {
-    path: String,
-    attributes: Vec<i32>,
-    primer: String,
+    pub path: String,
+    pub attributes: Vec<i32>,
+    pub primer: String,
 }
 
 fn read_cstr<R: Read>(mut reader: R, buffer: &mut [u8]) -> std::io::Result<&mut [u8]> {
-    use crate::utils;
-
     reader.read_exact(buffer)?;
     let mut buffer = &mut buffer[..];
 
@@ -76,7 +74,7 @@ pub fn load_emotbl<P: AsRef<Path>>(path: P) -> std::io::Result<Emotbl> {
         let primer = read_cstr(&mut emotbl, &mut primer)?;
         let (primer, _, _) = SHIFT_JIS.decode(primer);
 
-        emotbl.seek(SeekFrom::Start(cur));
+        emotbl.seek(SeekFrom::Start(cur))?;
 
         res.insert(entry_name.into(), EmotblEntry {
             path: path.into(),
