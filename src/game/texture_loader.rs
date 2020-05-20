@@ -1,4 +1,4 @@
-use crate::format::s25::{Result, S25Archive, S25Image};
+use crate::format::s25::S25Image;
 
 use vulkano::format::Format;
 use vulkano::image::Dimensions;
@@ -9,17 +9,6 @@ use vulkano::device::Queue;
 use vulkano::sync::NowFuture;
 
 use std::sync::Arc;
-
-pub fn load_s25_entry(
-    archive: &mut S25Archive,
-    entry: usize,
-    queue: Arc<Queue>,
-) -> Result<(
-    Arc<ImmutableImage<Format>>,
-    CommandBufferExecFuture<NowFuture, AutoCommandBuffer>,
-)> {
-    Ok(load_s25_image(archive.load_image(entry)?, queue))
-}
 
 pub fn load_s25_image(
     image: S25Image,

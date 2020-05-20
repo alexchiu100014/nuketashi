@@ -1,13 +1,11 @@
 use std::sync::Arc;
+use vulkano::descriptor::PipelineLayoutAbstract;
 use vulkano::device::Device;
+use vulkano::format::Format;
 use vulkano::framebuffer::{RenderPassAbstract, Subpass};
 use vulkano::pipeline::{vertex::SingleBufferDefinition, GraphicsPipeline};
-use vulkano::{descriptor::PipelineLayoutAbstract, swapchain::Swapchain};
 
-pub fn create_render_pass<W>(
-    device: Arc<Device>,
-    swapchain: &Swapchain<W>,
-) -> Arc<impl RenderPassAbstract> {
+pub fn create_render_pass(device: Arc<Device>, format: Format) -> Arc<impl RenderPassAbstract> {
     Arc::new(
         vulkano::single_pass_renderpass!(
             device,
@@ -15,7 +13,7 @@ pub fn create_render_pass<W>(
                 color: {
                     load: Clear,
                     store: Store,
-                    format: swapchain.format(),
+                    format: format,
                     samples: 1,
                 }
             },

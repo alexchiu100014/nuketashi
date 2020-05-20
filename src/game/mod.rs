@@ -224,7 +224,8 @@ impl Game<'static> {
 
         use std::time::Instant;
 
-        let render_pass = pipeline::create_render_pass(self.device.clone(), &self.swapchain);
+        let render_pass =
+            pipeline::create_render_pass(self.device.clone(), self.swapchain.format());
 
         let pipeline =
             pipeline::create_pict_layer_pipeline(self.device.clone(), render_pass.clone());
@@ -372,7 +373,7 @@ impl Game<'static> {
                 let now = Instant::now();
                 let commands = self.vm.poll();
 
-                if total_frames > 30 {
+                if total_frames > 5 {
                     log::debug!(
                         "fps: {:.2}",
                         (total_frames as f64) / (now - last_frame).as_secs_f64()
