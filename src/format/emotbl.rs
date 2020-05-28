@@ -1,6 +1,6 @@
+use std::collections::HashMap;
 use std::io::{BufReader, Read};
 use std::path::Path;
-use std::collections::HashMap;
 
 use encoding_rs::SHIFT_JIS;
 
@@ -76,11 +76,14 @@ pub fn load_emotbl<P: AsRef<Path>>(path: P) -> std::io::Result<Emotbl> {
 
         emotbl.seek(SeekFrom::Start(cur))?;
 
-        res.insert(entry_name.into(), EmotblEntry {
-            path: path.into(),
-            attributes,
-            primer: primer.into(),
-        });
+        res.insert(
+            entry_name.into(),
+            EmotblEntry {
+                path: path.into(),
+                attributes,
+                primer: primer.into(),
+            },
+        );
     }
 
     Ok(res)
