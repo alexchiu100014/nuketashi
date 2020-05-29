@@ -3,7 +3,6 @@
 pub mod instance;
 pub mod layer;
 pub mod pipeline;
-pub mod renderer;
 pub mod shaders;
 pub mod text;
 pub mod texture_loader;
@@ -24,7 +23,6 @@ use winit::window::{Window, WindowBuilder};
 use std::sync::Arc;
 
 use crate::constants;
-use crate::script::vm::Vm;
 
 pub struct Game<'a> {
     pub physical: PhysicalDevice<'a>,
@@ -35,7 +33,6 @@ pub struct Game<'a> {
     pub images: Vec<Arc<SwapchainImage<Window>>>,
     pub graphical_queue: Arc<Queue>,
     pub transfer_queue: Arc<Queue>,
-    pub vm: Vm<std::io::Cursor<String>>,
 }
 
 impl Game<'static> {
@@ -97,18 +94,6 @@ impl Game<'static> {
         )
         .expect("failed to create a swapchain");
 
-        // Create VM.
-        let mut vm = Vm::new(std::io::Cursor::new({
-            use encoding_rs::SHIFT_JIS;
-            let script = include_bytes!("../../blob/NUKITASHI_T.WAR/01_C_00.TXT");
-            let (script, _, _) = SHIFT_JIS.decode(script);
-            // let script = include_str!("../../blob/___t.WAR/01_C_01.copy.TXT");
-            script.into()
-        }));
-
-        vm.construct_face_map("./blob/NUKITASHI_T.WAR/FAUTOTBL.BIN")
-            .expect("failed to construct facetable");
-
         Game {
             physical,
             device,
@@ -118,7 +103,6 @@ impl Game<'static> {
             images,
             graphical_queue,
             transfer_queue,
-            vm,
         }
     }
 }
@@ -215,7 +199,7 @@ impl Game<'static> {
     /// It takes the ownership of a Game instance, and won't return until
     /// the program is closed.
     pub fn execute(mut self) {
-        use vulkano::swapchain::{SwapchainCreationError};
+        use vulkano::swapchain::SwapchainCreationError;
 
         let render_pass =
             pipeline::create_render_pass(self.device.clone(), self.swapchain.format());
@@ -248,7 +232,6 @@ impl Game<'static> {
             } => {
                 recreate_swapchain = true;
 
-                self.vm.request_draw();
                 self.surface.window().request_redraw();
             }
             Event::RedrawRequested(_) => {
@@ -279,7 +262,7 @@ impl Game<'static> {
     }
 
     pub fn perform_redraw(&mut self) {
-        // TODo:
+        // TODO:
     }
 }
 
