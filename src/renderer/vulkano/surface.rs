@@ -18,7 +18,7 @@ use std::sync::Arc;
 use super::{instance, VulkanoBackend, VulkanoRenderingContext};
 use crate::constants;
 
-use crate::renderer::{RenderingContext, RenderingSurface, RenderingTarget};
+use crate::renderer::{EventDelegate, RenderingContext, RenderingSurface, RenderingTarget};
 
 pub struct VulkanoSurface<'a> {
     pub physical: PhysicalDevice<'a>,
@@ -37,6 +37,7 @@ pub struct VulkanoSurface<'a> {
 pub struct VulkanoSurfaceRenderTarget {
     pub framebuffer: Arc<dyn FramebufferAbstract + Send + Sync>,
     pub command_buffer: AutoCommandBufferBuilder,
+    pub swapchain_no: usize,
 }
 
 impl RenderingTarget<VulkanoBackend> for VulkanoSurfaceRenderTarget {}
@@ -207,27 +208,13 @@ impl<'a> VulkanoSurface<'a> {
     }
 }
 
-impl<'a, Ctx> RenderingSurface<VulkanoBackend, Ctx> for VulkanoSurface<'a>
-where
-    Ctx: RenderingContext<VulkanoBackend> + VulkanoRenderingContext,
-{
+impl<'a> EventDelegate for VulkanoSurface<'a> {
     type UserEvent = ();
-    type Target = VulkanoSurfaceRenderTarget;
 
-    fn handle_event(&mut self, event: &Event<Self::UserEvent>, control_flow: &mut ControlFlow) {
+    fn handle_event(&mut self, event: &Event<Self::UserEvent>, _: &mut ControlFlow) {
         use winit::event::WindowEvent;
 
         match event {
-            Event::WindowEvent {
-                event: WindowEvent::CloseRequested,
-                window_id,
-            } => {
-                if self.surface.window().id() != *window_id {
-                    return;
-                }
-
-                *control_flow = ControlFlow::Exit;
-            }
             Event::WindowEvent {
                 event: WindowEvent::Resized(_),
                 window_id,
@@ -243,8 +230,15 @@ where
             }
         }
     }
+}
 
-    fn draw(&mut self, context: &Ctx) -> Option<Self::Target> {
+impl<'a, Ctx> RenderingSurface<VulkanoBackend, Ctx> for VulkanoSurface<'a>
+where
+    Ctx: RenderingContext<VulkanoBackend> + VulkanoRenderingContext,
+{
+    type Target = VulkanoSurfaceRenderTarget;
+
+    fn draw_begin(&mut self, context: &Ctx) -> Option<Self::Target> {
         use vulkano::swapchain::{AcquireError, SwapchainCreationError};
 
         if self.recreate_swapchain || self.framebuffers.is_empty() {
@@ -296,7 +290,44 @@ where
                 self.graphical_queue.family(),
             )
             .ok()?,
+            swapchain_no: image_num,
         })
+    }
+
+    fn draw_end(&mut self, target: Self::Target) {
+        use vulkano::sync::FlushError;
+
+        let command_buffer = target
+            .command_buffer
+            .build()
+            .expect("failed to build command buffer");
+
+        let future = self
+            .future
+            .take()
+            .unwrap()
+            .then_execute(self.graphical_queue.clone(), command_buffer)
+            .unwrap()
+            .then_swapchain_present(
+                self.graphical_queue.clone(),
+                self.swapchain.clone(),
+                target.swapchain_no,
+            )
+            .then_signal_fence_and_flush();
+
+        match future {
+            Ok(future) => {
+                self.future = Some(Box::new(future) as Box<_>);
+            }
+            Err(FlushError::OutOfDate) => {
+                self.recreate_swapchain = true;
+                self.future = Some(Box::new(vulkano::sync::now(self.device.clone())) as Box<_>);
+            }
+            Err(e) => {
+                log::error!("failed to flush future: {:?}", e);
+                self.future = Some(Box::new(vulkano::sync::now(self.device.clone())) as Box<_>);
+            }
+        }
     }
 }
 

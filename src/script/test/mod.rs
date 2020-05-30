@@ -12,6 +12,5 @@ fn parse_script() {
 
     while script.load_command_until_wait().unwrap() {
         // fuck
-        println!("wait");
     }
 }
