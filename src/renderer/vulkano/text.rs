@@ -19,7 +19,7 @@ use std::sync::Arc;
 
 pub type Texture = Arc<ImmutableImage<Format>>;
 
-pub mod renderer;
+use crate::renderer::common::text as renderer;
 
 const FONT_HEIGHT: f32 = 44.0;
 
@@ -239,7 +239,7 @@ impl Text {
                     self.vertex_buffer.clone().unwrap(),
                     self.indices_buffer.clone().unwrap(),
                     self.set.clone().unwrap(),
-                    crate::game::shaders::text::vs::ty::PushConstantData {
+                    crate::renderer::vulkano::shaders::text::vs::ty::PushConstantData {
                         offset: viewport::point_unscaled(self.offset.0, self.offset.1),
                         text_cursor: if self.use_cursor { self.cursor } else { 1000.0 },
                     },

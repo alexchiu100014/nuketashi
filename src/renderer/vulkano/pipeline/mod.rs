@@ -26,7 +26,7 @@ pub fn create_render_pass(device: Arc<Device>, format: Format) -> Arc<impl Rende
     )
 }
 
-use crate::game::layer;
+use crate::renderer::vulkano::layer;
 
 pub fn create_pict_layer_pipeline<Rp>(
     device: Arc<Device>,
@@ -41,7 +41,7 @@ pub fn create_pict_layer_pipeline<Rp>(
 where
     Rp: RenderPassAbstract,
 {
-    use crate::game::shaders::pict_layer::{fs, vs};
+    use crate::renderer::vulkano::shaders::pict_layer::{fs, vs};
 
     let vs = vs::Shader::load(device.clone()).unwrap();
     let fs = fs::Shader::load(device.clone()).unwrap();
@@ -60,7 +60,7 @@ where
     )
 }
 
-use crate::game::text;
+use crate::renderer::vulkano::text;
 
 pub fn create_text_layer_pipeline<Rp>(
     device: Arc<Device>,
@@ -75,7 +75,7 @@ pub fn create_text_layer_pipeline<Rp>(
 where
     Rp: RenderPassAbstract,
 {
-    use crate::game::shaders::text::{fs, vs};
+    use crate::renderer::vulkano::shaders::text::{fs, vs};
 
     let vs = vs::Shader::load(device.clone()).unwrap();
     let fs = fs::Shader::load(device.clone()).unwrap();

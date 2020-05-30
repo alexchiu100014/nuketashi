@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::format::s25::{self, S25Archive, S25Image};
-use crate::game::texture_loader;
+use crate::renderer::vulkano::texture_loader;
 use crate::utils::viewport;
 
 pub type Texture = Arc<ImmutableImage<Format>>;
@@ -194,7 +194,7 @@ impl PictLayer {
                     dyn_state,
                     self.vertex_buffer.clone().unwrap(),
                     self.set.clone().unwrap(),
-                    crate::game::shaders::pict_layer::vs::ty::PushConstantData {
+                    crate::renderer::vulkano::shaders::pict_layer::vs::ty::PushConstantData {
                         offset: viewport::f_point_unscaled(x, y),
                         opacity,
                         radius_x,
