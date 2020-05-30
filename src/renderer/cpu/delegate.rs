@@ -151,13 +151,13 @@ impl CpuDelegateContext {
             false,
             vec![
                 Vertex {
-                    position: [0.0, 0.0],
+                    position: [-1.0, -1.0],
                 },
                 Vertex {
-                    position: [0.0, 1.0],
+                    position: [-1.0, 1.0],
                 },
                 Vertex {
-                    position: [1.0, 0.0],
+                    position: [1.0, -1.0],
                 },
                 Vertex {
                     position: [1.0, 1.0],
@@ -202,8 +202,12 @@ impl CpuDelegateContext {
     }
 
     pub fn load_buffer(&mut self, buf: &[u8]) {
-        let mut lock = self.buffer.write().expect("failed to obtain write lock");
-        lock.copy_from_slice(buf);
+        let lock = self.buffer.write();
+        
+        match lock {
+            Ok(mut lock) => lock.copy_from_slice(buf),
+            Err(err) => log::debug!("failed to obtain lock: {}", err),
+        }
     }
 }
 

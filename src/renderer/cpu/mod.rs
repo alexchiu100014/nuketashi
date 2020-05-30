@@ -35,6 +35,10 @@ impl CpuSurface {
             delegate: CpuDelegate::new(event_loop),
         }
     }
+
+    pub fn request_redraw(&mut self) {
+        self.delegate.surface.surface.window().request_redraw();
+    }
 }
 
 impl EventDelegate for CpuSurface {
