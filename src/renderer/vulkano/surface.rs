@@ -1,5 +1,6 @@
 use vulkano::command_buffer::DynamicState;
 use vulkano::device::{Device, DeviceExtensions, Queue};
+use vulkano::format::Format;
 use vulkano::framebuffer::{Framebuffer, FramebufferAbstract, RenderPassAbstract};
 use vulkano::image::swapchain::SwapchainImage;
 use vulkano::instance::PhysicalDevice;
@@ -31,12 +32,13 @@ pub struct VulkanoSurface<'a> {
     pub framebuffers: Vec<Arc<dyn FramebufferAbstract + Send + Sync>>,
     pub recreate_swapchain: bool,
     pub dynamic_state: DynamicState,
-    pub future: Option<Box<dyn GpuFuture + 'a>>,
+    pub future: Option<Box<dyn GpuFuture>>,
 }
 
 pub struct VulkanoSurfaceRenderTarget {
     pub framebuffer: Arc<dyn FramebufferAbstract + Send + Sync>,
     pub command_buffer: AutoCommandBufferBuilder,
+    pub future: Box<dyn GpuFuture>,
     pub swapchain_no: usize,
 }
 
@@ -44,25 +46,21 @@ impl RenderingTarget<VulkanoBackend> for VulkanoSurfaceRenderTarget {}
 
 impl VulkanoSurface<'static> {
     pub fn new(event_loop: &EventLoop<()>) -> Self {
-        /*
-         * Vulkan-based program should follow these instructions to ininitalize:
-         *
-         * - Create an instance
-         * - Obtain a physical device
-         * - Create a Vulkan surface from Window
-         *   - This requires the creation of a winit Window.
-         * - Create a device
-         */
-
         let physical = Self::create_physical();
         let surface = Self::create_window(event_loop);
         let (device, graphical_queue, transfer_queue) = Self::create_device(physical, &surface);
 
         let caps = surface.capabilities(physical).unwrap();
-        use vulkano::format::Format;
 
         log::debug!("supported formats: {:?}", caps.supported_formats);
 
+        // TODO: fix this
+        // vkCreateImageView(): pCreateInfo->format VK_FORMAT_B8G8R8A8_SRGB
+        // with tiling VK_IMAGE_TILING_OPTIMAL does not support usage that includes
+        // VK_IMAGE_USAGE_STORAGE_BIT. The Vulkan spec states:
+        // If usage contains VK_IMAGE_USAGE_STORAGE_BIT, then the image view's format
+        // features must contain VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT.
+        // (https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#VUID-VkImageViewCreateInfo-usage-02275)
         let (f, cs) = caps
             .supported_formats
             .iter()
@@ -72,6 +70,7 @@ impl VulkanoSurface<'static> {
                     || *f == Format::B8G8R8Srgb
                     || *f == Format::R8G8B8A8Srgb
                     || *f == Format::R8G8B8Srgb
+                    || *f == Format::B8G8R8A8Unorm // fuck
             })
             .expect("no suitable format; any of B8G8R8A8Srgb, B8G8R8Srgb, R8G8B8A8Srgb, or R8G8B8Srgb should be supported");
 
@@ -208,6 +207,13 @@ impl<'a> VulkanoSurface<'a> {
     }
 }
 
+impl<'a> VulkanoSurface<'a> {
+    /// Returns a format.
+    pub fn format(&self) -> Format {
+        self.swapchain.format()
+    }
+}
+
 impl<'a> EventDelegate for VulkanoSurface<'a> {
     type UserEvent = ();
 
@@ -277,10 +283,10 @@ where
             self.recreate_swapchain = true;
         }
 
-        self.future = if let Some(future) = self.future.take() {
-            Some(Box::new(future.join(acquire_future)))
+        let future = if let Some(future) = self.future.take() {
+            Box::new(future.join(acquire_future)) as Box<_>
         } else {
-            Some(Box::new(acquire_future))
+            Box::new(acquire_future) as Box<_>
         };
 
         Some(VulkanoSurfaceRenderTarget {
@@ -291,10 +297,11 @@ where
             )
             .ok()?,
             swapchain_no: image_num,
+            future,
         })
     }
 
-    fn draw_end(&mut self, target: Self::Target) {
+    fn draw_end(&mut self, target: Self::Target, _: &Ctx) {
         use vulkano::sync::FlushError;
 
         let command_buffer = target
@@ -302,10 +309,8 @@ where
             .build()
             .expect("failed to build command buffer");
 
-        let future = self
+        let future = target
             .future
-            .take()
-            .unwrap()
             .then_execute(self.graphical_queue.clone(), command_buffer)
             .unwrap()
             .then_swapchain_present(

@@ -1,6 +1,6 @@
+pub mod common;
 pub mod cpu;
 pub mod vulkano;
-pub mod common;
 
 use winit::event::Event;
 use winit::event_loop::ControlFlow;
@@ -20,7 +20,7 @@ pub trait RenderingSurface<B: GraphicBackend, Ctx: RenderingContext<B>> {
 
     fn draw_begin(&mut self, context: &Ctx) -> Option<Self::Target>;
 
-    fn draw_end(&mut self, target: Self::Target);
+    fn draw_end(&mut self, target: Self::Target, context: &Ctx);
 }
 
 /// Resources for a renderer.
