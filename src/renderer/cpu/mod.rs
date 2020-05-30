@@ -1,38 +1,33 @@
 pub mod delegate;
 
 use crate::renderer::vulkano::surface::VulkanoSurface;
-
 use crate::renderer::*;
 
 use winit::event_loop::EventLoop;
+
+use std::collections::VecDeque;
 
 pub struct CpuBackend;
 
 impl GraphicBackend for CpuBackend {}
 
-use delegate::CpuDelegate;
+use delegate::{CpuDelegate, CpuImageBuffer};
 
 pub struct CpuSurface {
-    framebuffer: Option<CpuImageBuffer>,
+    framebuffers: VecDeque<CpuImageBuffer>,
     delegate: CpuDelegate,
-}
-
-#[derive(Default)]
-pub struct CpuImageBuffer {
-    width: usize,
-    height: usize,
-    rgba_buffer: Vec<u8>,
 }
 
 impl CpuSurface {
     pub fn new(event_loop: &EventLoop<()>) -> CpuSurface {
+        let delegate = CpuDelegate::new(event_loop);
+
+        let mut framebuffers = VecDeque::new();
+        framebuffers.resize_with(2, || delegate.create_framebuffer(1600, 900));
+
         CpuSurface {
-            framebuffer: Some(CpuImageBuffer {
-                width: crate::constants::GAME_WINDOW_WIDTH as usize,
-                height: crate::constants::GAME_WINDOW_HEIGHT as usize,
-                rgba_buffer: vec![],
-            }),
-            delegate: CpuDelegate::new(event_loop),
+            framebuffers,
+            delegate,
         }
     }
 
@@ -57,8 +52,8 @@ where
 
     fn draw_begin(&mut self, _: &Ctx) -> Option<Self::Target> {
         let mut buf = self
-            .framebuffer
-            .take()
+            .framebuffers
+            .pop_front()
             .expect("failed to obtain framebuffer");
 
         buf.rgba_buffer.clear();
@@ -69,7 +64,7 @@ where
 
     fn draw_end(&mut self, target: Self::Target, _: &Ctx) {
         self.delegate.draw(&target);
-        self.framebuffer = Some(target);
+        self.framebuffers.push_back(target);
     }
 }
 

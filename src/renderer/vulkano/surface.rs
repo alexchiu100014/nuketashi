@@ -246,6 +246,8 @@ where
 
     fn draw_begin(&mut self, context: &Ctx) -> Option<Self::Target> {
         use vulkano::swapchain::{AcquireError, SwapchainCreationError};
+        
+        self.future.as_mut().unwrap().cleanup_finished();
 
         if self.recreate_swapchain || self.framebuffers.is_empty() {
             // Get the new dimensions of the window.

@@ -41,6 +41,11 @@ impl Game {
 
                     log::debug!("fps: {:.02}", fps);
 
+                    #[cfg(not(debug_assertions))]
+                    {
+                        println!("fps: {:.02}", fps);
+                    }
+
                     let target = buf.draw_begin(&()).unwrap();
                     buf.draw_end(target, &());
 
