@@ -5,17 +5,22 @@ use vulkano::image::swapchain::SwapchainImage;
 use vulkano::instance::PhysicalDevice;
 use vulkano::pipeline::viewport::Viewport;
 use vulkano::swapchain::{FullscreenExclusive, PresentMode, Surface, SurfaceTransform, Swapchain};
+use vulkano::sync::GpuFuture;
 
-use winit::event::{Event, WindowEvent};
+use vulkano::command_buffer::AutoCommandBufferBuilder;
+
+use winit::event::Event;
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
 
 use std::sync::Arc;
 
+use super::{instance, VulkanoBackend, VulkanoRenderingContext};
 use crate::constants;
-use super::instance;
 
-pub struct VulkanSurface<'a> {
+use crate::renderer::{RenderingContext, RenderingSurface, RenderingTarget};
+
+pub struct VulkanoSurface<'a> {
     pub physical: PhysicalDevice<'a>,
     pub device: Arc<Device>,
     pub surface: Arc<Surface<Window>>,
@@ -23,9 +28,20 @@ pub struct VulkanSurface<'a> {
     pub images: Vec<Arc<SwapchainImage<Window>>>,
     pub graphical_queue: Arc<Queue>,
     pub transfer_queue: Arc<Queue>,
+    pub framebuffers: Vec<Arc<dyn FramebufferAbstract + Send + Sync>>,
+    pub recreate_swapchain: bool,
+    pub dynamic_state: DynamicState,
+    pub future: Option<Box<dyn GpuFuture + 'a>>,
 }
 
-impl VulkanSurface<'static> {
+pub struct VulkanoSurfaceRenderTarget {
+    pub framebuffer: Arc<dyn FramebufferAbstract + Send + Sync>,
+    pub command_buffer: AutoCommandBufferBuilder,
+}
+
+impl RenderingTarget<VulkanoBackend> for VulkanoSurfaceRenderTarget {}
+
+impl VulkanoSurface<'static> {
     pub fn new(event_loop: &EventLoop<()>) -> Self {
         /*
          * Vulkan-based program should follow these instructions to ininitalize:
@@ -36,7 +52,7 @@ impl VulkanSurface<'static> {
          *   - This requires the creation of a winit Window.
          * - Create a device
          */
-        
+
         let physical = Self::create_physical();
         let surface = Self::create_window(event_loop);
         let (device, graphical_queue, transfer_queue) = Self::create_device(physical, &surface);
@@ -56,7 +72,7 @@ impl VulkanSurface<'static> {
                     || *f == Format::R8G8B8A8Srgb
                     || *f == Format::R8G8B8Srgb
             })
-            .unwrap();
+            .expect("no suitable format; any of B8G8R8A8Srgb, B8G8R8Srgb, R8G8B8A8Srgb, or R8G8B8Srgb should be supported");
 
         let (swapchain, images) = Swapchain::new(
             device.clone(),
@@ -76,7 +92,8 @@ impl VulkanSurface<'static> {
         )
         .expect("failed to create a swapchain");
 
-        VulkanSurface {
+        VulkanoSurface {
+            future: Some(Box::new(vulkano::sync::now(device.clone()))),
             physical,
             device,
             surface,
@@ -84,23 +101,41 @@ impl VulkanSurface<'static> {
             images,
             graphical_queue,
             transfer_queue,
+            recreate_swapchain: false,
+            framebuffers: vec![],
+            dynamic_state: DynamicState {
+                line_width: None,
+                viewports: None,
+                scissors: None,
+                compare_mask: None,
+                write_mask: None,
+                reference: None,
+            },
         }
     }
 }
 
 // -- Initialization
-impl<'a> VulkanSurface<'a> {
+impl<'a> VulkanoSurface<'a> {
     fn create_physical() -> PhysicalDevice<'static> {
+        use vulkano::instance::PhysicalDeviceType;
+
         let instance = instance::get_instance();
 
         // Obtain a physical device.
+        //
         // Note that a PhysicalDevice is bound to the reference of the instance,
         // hence the instance should be alive while `physical` is alive.
         // Instance has 'static lifetime parameter, so no problem here.
         //
+        // This will use discrete GPU first, which will be the optimal for most
+        // environment.
+
         // TODO: let users to choose physical devices
         let physical = PhysicalDevice::enumerate(instance)
+            .filter(|p| p.ty() == PhysicalDeviceType::DiscreteGpu)
             .next()
+            .or_else(|| PhysicalDevice::enumerate(instance).next())
             .expect("no physical device available");
 
         log::debug!("device: {}, type: {:?}", physical.name(), physical.ty());
@@ -117,7 +152,6 @@ impl<'a> VulkanSurface<'a> {
                 width: constants::GAME_WINDOW_WIDTH,
                 height: constants::GAME_WINDOW_HEIGHT,
             })
-            // .with_resizable(false)
             .build(event_loop)
             .expect("failed to build Window");
 
@@ -173,17 +207,96 @@ impl<'a> VulkanSurface<'a> {
     }
 }
 
-// -- Run-loop execution & event-handling
-impl VulkanSurface<'static> {
-    /// Executes an event loop.
-    ///
-    /// It takes the ownership of a Game instance, and won't return until
-    /// the program is closed.
-    pub fn execute(mut self) {
+impl<'a, Ctx> RenderingSurface<VulkanoBackend, Ctx> for VulkanoSurface<'a>
+where
+    Ctx: RenderingContext<VulkanoBackend> + VulkanoRenderingContext,
+{
+    type UserEvent = ();
+    type Target = VulkanoSurfaceRenderTarget;
+
+    fn handle_event(&mut self, event: &Event<Self::UserEvent>, control_flow: &mut ControlFlow) {
+        use winit::event::WindowEvent;
+
+        match event {
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                window_id,
+            } => {
+                if self.surface.window().id() != *window_id {
+                    return;
+                }
+
+                *control_flow = ControlFlow::Exit;
+            }
+            Event::WindowEvent {
+                event: WindowEvent::Resized(_),
+                window_id,
+            } => {
+                if self.surface.window().id() != *window_id {
+                    return;
+                }
+
+                self.recreate_swapchain = true;
+            }
+            _ => {
+                // ignore
+            }
+        }
     }
 
-    pub fn perform_redraw(&mut self) {
-        // TODO:
+    fn draw(&mut self, context: &Ctx) -> Option<Self::Target> {
+        use vulkano::swapchain::{AcquireError, SwapchainCreationError};
+
+        if self.recreate_swapchain || self.framebuffers.is_empty() {
+            // Get the new dimensions of the window.
+            let dimensions: [u32; 2] = self.surface.window().inner_size().into();
+            let (new_swapchain, new_images) =
+                match self.swapchain.recreate_with_dimensions(dimensions) {
+                    Ok(r) => r,
+                    Err(SwapchainCreationError::UnsupportedDimensions) => {
+                        panic!("failed to create swapchain; unsupported dimensions");
+                    }
+                    Err(e) => panic!("failed to recreate swapchain: {:?}", e),
+                };
+
+            self.swapchain = new_swapchain;
+
+            self.framebuffers = window_size_dependent_setup(
+                &new_images,
+                context.render_pass().clone(),
+                &mut self.dynamic_state,
+            );
+            self.recreate_swapchain = false;
+        }
+
+        let (image_num, suboptimal, acquire_future) =
+            match vulkano::swapchain::acquire_next_image(self.swapchain.clone(), None) {
+                Ok(r) => r,
+                Err(AcquireError::OutOfDate) => {
+                    self.recreate_swapchain = true;
+                    return None;
+                }
+                Err(e) => panic!("failed to acquire next image: {:?}", e),
+            };
+
+        if suboptimal {
+            self.recreate_swapchain = true;
+        }
+
+        self.future = if let Some(future) = self.future.take() {
+            Some(Box::new(future.join(acquire_future)))
+        } else {
+            Some(Box::new(acquire_future))
+        };
+
+        Some(VulkanoSurfaceRenderTarget {
+            framebuffer: self.framebuffers[image_num].clone(),
+            command_buffer: AutoCommandBufferBuilder::primary_one_time_submit(
+                self.device.clone(),
+                self.graphical_queue.family(),
+            )
+            .ok()?,
+        })
     }
 }
 

@@ -7,7 +7,7 @@
 
 use cocoa::appkit::{NSApp, NSApplication, NSEventModifierFlags, NSMenu, NSMenuItem};
 use cocoa::base::nil;
-use cocoa::foundation::{NSAutoreleasePool, NSString, NSUInteger, NSBundle};
+use cocoa::foundation::{NSAutoreleasePool, NSBundle, NSString, NSUInteger};
 
 use objc::*;
 
