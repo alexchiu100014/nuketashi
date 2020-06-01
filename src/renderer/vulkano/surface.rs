@@ -276,7 +276,8 @@ where
                 Ok(r) => r,
                 Err(AcquireError::OutOfDate) => {
                     self.recreate_swapchain = true;
-                    return None;
+                    // TODO: retry creating swapchain; will stack overflow when failed
+                    return self.draw_begin(context);
                 }
                 Err(e) => panic!("failed to acquire next image: {:?}", e),
             };
