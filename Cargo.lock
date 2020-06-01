@@ -708,6 +708,7 @@ dependencies = [
  "objc",
  "png",
  "rusttype 0.9.1",
+ "s25",
  "simplelog",
  "vulkano",
  "vulkano-shaders",
@@ -928,6 +929,12 @@ dependencies = [
  "ab_glyph_rasterizer",
  "owned_ttf_parser",
 ]
+
+[[package]]
+name = "s25"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f0353c4effb1743616bb4db11a3467d952a481a5728bfd358d4190d0b6ef6e3"
 
 [[package]]
 name = "same-file"
