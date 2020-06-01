@@ -25,8 +25,17 @@ pub trait RenderingSurface<B: GraphicBackend, Ctx: RenderingContext<B>> {
 
 /// Resources for a renderer.
 ///
-/// Usually contains a render pass, pipelines.
+/// Usually contains a render pass, pipelines, and shared between renderers.
 pub trait RenderingContext<B: GraphicBackend> {}
 
 /// Rendering target. Usually a swapchain image.
 pub trait RenderingTarget<B: GraphicBackend> {}
+
+/// Renderer.
+pub trait Renderer<M, B: GraphicBackend> {
+    type Context: RenderingContext<B>;
+
+    fn render<S>(&mut self, model: &M, surface: &mut S, context: &Self::Context)
+    where
+        S: RenderingSurface<B, Self::Context>;
+}
