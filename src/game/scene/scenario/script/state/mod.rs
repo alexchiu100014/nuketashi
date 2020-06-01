@@ -1,6 +1,5 @@
 pub mod layer;
 
-use crate::script::vm::DrawCall;
 use std::path::PathBuf;
 
 use layer::LayerModel;

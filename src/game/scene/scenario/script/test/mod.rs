@@ -1,4 +1,4 @@
-use crate::script::vm::Vm;
+use crate::game::scene::scenario::script::vm::Vm;
 use encoding_rs::SHIFT_JIS;
 use std::io::Cursor;
 

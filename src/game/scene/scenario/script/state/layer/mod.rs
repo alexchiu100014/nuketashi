@@ -4,7 +4,7 @@ use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use crate::script::state::DrawCall;
+use crate::game::scene::scenario::script::vm::DrawCall;
 use crate::utils::easing::Easing;
 
 use animation::{Animation, AnimationType};
