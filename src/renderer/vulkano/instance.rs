@@ -2,19 +2,33 @@ use lazy_static::*;
 use std::sync::Arc;
 use vulkano::instance::{ApplicationInfo, Instance};
 
-use crate::constants;
-
 lazy_static! {
     // VkInstance should be created once.
     static ref VK_INSTANCE: Arc<Instance> = create_vulkan_instance();
 }
 
+#[inline(always)]
+fn engine_name<'a>() -> String {
+    let a = [237u8, 160, 133, 71, 47, 103, 14, 173, 49, 215, 83, 123, 188];
+    let b = [191u8, 197, 236, 61, 74, 14, 103, 195, 101, 184, 38, 16, 221];
+
+    let c: Vec<_> = a
+        .iter()
+        .copied()
+        .zip(b.iter().copied())
+        .map(|(a, b)| a ^ b)
+        .collect();
+
+    unsafe { std::str::from_utf8_unchecked(&c).into() }
+}
+
 fn application_info() -> ApplicationInfo<'static> {
     use vulkano::instance::Version;
 
+    let engine_name = engine_name();
+
     ApplicationInfo {
-        // ReizeiinTouka; ShiinaRio-script compatible engine.
-        engine_name: Some(constants::GAME_ENGINE_NAME.into()),
+        engine_name: Some(engine_name.into()),
         engine_version: Some(Version {
             major: 2,
             minor: 50,
@@ -49,6 +63,7 @@ fn create_vulkan_instance() -> Arc<Instance> {
 
     #[cfg(not(debug_assertions))]
     {
+        // disable the validation layer
         layers = None;
     }
 

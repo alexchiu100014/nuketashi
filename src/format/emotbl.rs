@@ -6,6 +6,7 @@ use encoding_rs::SHIFT_JIS;
 
 pub type Emotbl = HashMap<String, EmotblEntry>;
 
+#[derive(Debug, Clone)]
 pub struct EmotblEntry {
     pub path: String,
     pub attributes: Vec<i32>,
@@ -50,11 +51,11 @@ pub fn load_emotbl<P: AsRef<Path>>(path: P) -> std::io::Result<Emotbl> {
             break;
         }
 
-        let cur = emotbl.seek(SeekFrom::Current(0))?;
-
         let attribute_offset = utils::io::read_i32(&mut emotbl)?;
         let primer_offset = utils::io::read_i32(&mut emotbl)?;
 
+        let cur = emotbl.seek(SeekFrom::Current(0))?;
+        
         emotbl.seek(SeekFrom::Start(attribute_offset as u64))?;
 
         let mut attributes = Vec::new();
@@ -87,4 +88,11 @@ pub fn load_emotbl<P: AsRef<Path>>(path: P) -> std::io::Result<Emotbl> {
     }
 
     Ok(res)
+}
+
+#[test]
+fn test_emotbl() {
+    let emotbl = load_emotbl("./blob/NUKITASHI_T.WAR/EMOTBL.BIN").unwrap();
+
+    println!("{:#?}", emotbl);
 }

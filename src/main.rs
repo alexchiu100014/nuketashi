@@ -5,7 +5,6 @@ pub mod format;
 pub mod game;
 pub mod platform;
 pub mod renderer;
-pub mod script;
 pub mod utils;
 
 fn main() {

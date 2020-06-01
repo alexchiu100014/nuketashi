@@ -1,3 +1,5 @@
+pub mod scene;
+
 pub struct Game;
 
 use winit::event::{Event, WindowEvent};
@@ -43,6 +45,8 @@ impl Game {
 
                     #[cfg(not(debug_assertions))]
                     {
+                        // NOTE: we need this for profiling...
+                        // should be removed in the final product.
                         println!("fps: {:.02}", fps);
                     }
 

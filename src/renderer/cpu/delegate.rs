@@ -28,10 +28,7 @@ pub struct CpuImageBuffer {
 impl CpuDelegate {
     pub fn new(event_loop: &winit::event_loop::EventLoop<()>) -> Self {
         let surface = VulkanoSurface::new(event_loop);
-        let context = CpuDelegateContext::new(
-            surface.device.clone(),
-            surface.format(),
-        );
+        let context = CpuDelegateContext::new(surface.device.clone(), surface.format());
 
         Self { surface, context }
     }
@@ -88,7 +85,12 @@ impl CpuDelegate {
         )
         .expect("failed to create buffer");
 
-        let layout = self.context.pipeline.layout().descriptor_set_layout(0).unwrap();
+        let layout = self
+            .context
+            .pipeline
+            .layout()
+            .descriptor_set_layout(0)
+            .unwrap();
         let sets = Arc::new(
             PersistentDescriptorSet::start(layout.clone())
                 .add_sampled_image(texture.clone(), self.context.sampler.clone())
@@ -219,9 +221,7 @@ impl CpuImageBuffer {
             Ok(mut lock) => {
                 lock.copy_from_slice(&self.rgba_buffer);
             }
-            Err(err) => {
-                log::debug!("failed to obtain lock: {}", err)
-            }
+            Err(err) => log::debug!("failed to obtain lock: {}", err),
         }
     }
 }

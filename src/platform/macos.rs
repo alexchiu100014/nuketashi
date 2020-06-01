@@ -59,7 +59,7 @@ pub(crate) unsafe fn create_menu_bar() {
     app_menu.addItem_(
         NSMenuItem::alloc(nil)
             .initWithTitle_action_keyEquivalent_(
-                NSLocalizedString("Hide ReizeiinTouka"),
+                NSLocalizedString(&format!("Hide {}", crate::constants::GAME_ENGINE_NAME)),
                 sel![hide:],
                 NSString::alloc(nil).init_str("h"),
             )
@@ -113,7 +113,7 @@ pub(crate) unsafe fn create_menu_bar() {
     //       currently, this performed by closing window.
     let quit_item = NSMenuItem::alloc(nil)
         .initWithTitle_action_keyEquivalent_(
-            NSLocalizedString("Quit ReizeiinTouka"),
+            NSLocalizedString(&format!("Quit {}", crate::constants::GAME_ENGINE_NAME)),
             sel![performClose:],
             NSString::alloc(nil).init_str("q"),
         )
