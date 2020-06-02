@@ -177,8 +177,7 @@ impl PictLayer {
         (x, y): (f64, f64),
         opacity: f32,
         (radius_x, radius_y): (i32, i32),
-    )
-    where
+    ) where
         P: GraphicsPipelineAbstract
             + VertexSource<Arc<ImmutableBuffer<[Vertex]>>>
             + Send
@@ -363,8 +362,7 @@ impl Layer {
         builder: &mut AutoCommandBufferBuilder,
         pipeline: P,
         dyn_state: &DynamicState,
-    )
-    where
+    ) where
         P: GraphicsPipelineAbstract
             + VertexSource<Arc<ImmutableBuffer<[Vertex]>>>
             + Send

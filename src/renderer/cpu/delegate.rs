@@ -49,7 +49,7 @@ impl CpuDelegate {
             )
             .unwrap();
 
-            target
+        target
             .command_buffer
             .draw(
                 self.context.pipeline.clone(),
@@ -60,8 +60,7 @@ impl CpuDelegate {
             )
             .unwrap();
 
-            target
-            .command_buffer.end_render_pass().unwrap();
+        target.command_buffer.end_render_pass().unwrap();
 
         self.surface.draw_end(target, &self.context);
     }

@@ -55,7 +55,7 @@ pub fn load_emotbl<P: AsRef<Path>>(path: P) -> std::io::Result<Emotbl> {
         let primer_offset = utils::io::read_i32(&mut emotbl)?;
 
         let cur = emotbl.seek(SeekFrom::Current(0))?;
-        
+
         emotbl.seek(SeekFrom::Start(attribute_offset as u64))?;
 
         let mut attributes = Vec::new();

@@ -3,10 +3,10 @@
 pub mod constants;
 pub mod format;
 pub mod game;
+pub mod model;
 pub mod platform;
 pub mod renderer;
 pub mod utils;
-pub mod model;
 
 fn main() {
     #[cfg(debug_assertions)]

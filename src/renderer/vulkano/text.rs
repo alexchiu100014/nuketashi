@@ -221,8 +221,7 @@ impl Text {
         builder: &mut AutoCommandBufferBuilder,
         pipeline: P,
         dyn_state: &DynamicState,
-    )
-    where
+    ) where
         P: GraphicsPipelineAbstract
             + VertexSource<Arc<ImmutableBuffer<[Vertex]>>>
             + Send
