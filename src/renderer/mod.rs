@@ -36,8 +36,7 @@ pub trait RenderingTarget<B: GraphicBackend> {}
 pub trait Renderer<M, B: GraphicBackend> {
     type Context: RenderingContext<B>;
 
-    /// Render a model onto a surface using a given context.
-    fn render<S>(&mut self, model: &M, surface: &mut S, context: &Self::Context)
+    fn render<T>(&mut self, model: &M, target: &mut T, context: &Self::Context)
     where
-        S: RenderingSurface<B, Self::Context>;
+        T: RenderingTarget<B>;
 }

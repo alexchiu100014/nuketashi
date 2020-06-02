@@ -218,10 +218,10 @@ impl Text {
 
     pub fn draw<P>(
         &self,
-        builder: AutoCommandBufferBuilder,
+        builder: &mut AutoCommandBufferBuilder,
         pipeline: P,
         dyn_state: &DynamicState,
-    ) -> AutoCommandBufferBuilder
+    )
     where
         P: GraphicsPipelineAbstract
             + VertexSource<Arc<ImmutableBuffer<[Vertex]>>>
@@ -244,9 +244,7 @@ impl Text {
                         text_cursor: if self.use_cursor { self.cursor } else { 1000.0 },
                     },
                 )
-                .unwrap()
-        } else {
-            builder
+                .unwrap();
         }
     }
 

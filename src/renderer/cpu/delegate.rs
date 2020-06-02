@@ -38,7 +38,7 @@ impl CpuDelegate {
 
         framebuffer.load_buffer();
 
-        let cmd = target
+        target
             .command_buffer
             .copy_buffer_to_image(framebuffer.buffer.clone(), framebuffer.texture.clone())
             .unwrap()
@@ -49,7 +49,8 @@ impl CpuDelegate {
             )
             .unwrap();
 
-        let cmd = cmd
+            target
+            .command_buffer
             .draw(
                 self.context.pipeline.clone(),
                 &mut self.surface.dynamic_state,
@@ -59,7 +60,8 @@ impl CpuDelegate {
             )
             .unwrap();
 
-        target.command_buffer = cmd.end_render_pass().unwrap();
+            target
+            .command_buffer.end_render_pass().unwrap();
 
         self.surface.draw_end(target, &self.context);
     }

@@ -171,13 +171,13 @@ impl PictLayer {
 
     pub fn draw<P>(
         &self,
-        builder: AutoCommandBufferBuilder,
+        builder: &mut AutoCommandBufferBuilder,
         pipeline: P,
         dyn_state: &DynamicState,
         (x, y): (f64, f64),
         opacity: f32,
         (radius_x, radius_y): (i32, i32),
-    ) -> AutoCommandBufferBuilder
+    )
     where
         P: GraphicsPipelineAbstract
             + VertexSource<Arc<ImmutableBuffer<[Vertex]>>>
@@ -201,9 +201,7 @@ impl PictLayer {
                         radius_y,
                     },
                 )
-                .unwrap()
-        } else {
-            builder
+                .unwrap();
         }
     }
 
@@ -362,10 +360,10 @@ impl Layer {
 
     pub fn draw<P>(
         &self,
-        builder: AutoCommandBufferBuilder,
+        builder: &mut AutoCommandBufferBuilder,
         pipeline: P,
         dyn_state: &DynamicState,
-    ) -> AutoCommandBufferBuilder
+    )
     where
         P: GraphicsPipelineAbstract
             + VertexSource<Arc<ImmutableBuffer<[Vertex]>>>
@@ -374,17 +372,15 @@ impl Layer {
             + 'static
             + Clone,
     {
-        let mut builder = builder;
-
         if !self.is_visible {
-            return builder;
+            return;
         }
 
         // let all the pict-layers draw
         for layer in &self.pict_layers {
             assert!(layer.is_cached(), "layer not cached");
 
-            builder = layer.draw(
+            layer.draw(
                 builder,
                 pipeline.clone(),
                 dyn_state,
@@ -393,10 +389,6 @@ impl Layer {
                 self.blur_radius,
             );
         }
-
-        // TODO: apply overlay
-
-        builder
     }
 
     pub fn is_cached(&self) -> bool {
