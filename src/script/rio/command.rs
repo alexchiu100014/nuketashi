@@ -40,11 +40,13 @@ pub enum Command {
     Draw {
         duration: f64,
     },
-    DrawExEmpty { // $DRAW_EX, 0, ..
+    DrawExEmpty {
+        // $DRAW_EX, 0, ..
         duration: f64,
         reserved_overlay_mode: i32,
     },
-    DrawEx { // $DRAW_EX, 2, ..
+    DrawEx {
+        // $DRAW_EX, 2, ..
         filename: String,
         duration: f64,
         reserved_overlay_mode: i32, // 1?
