@@ -1,5 +1,26 @@
+#[derive(Copy, Clone, Debug)]
+pub enum AnimationTarget {
+    OffsetX,
+    OffsetY,
+    OverlayRate,
+    Opacity,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct AnimationStem {
+    pub target: AnimationTarget,
+    pub from: f64,
+    pub to: f64,
+}
+
 #[derive(Clone, Debug)]
-pub struct AnimationGraph {}
+pub struct AnimationGraph {
+    stems: Vec<AnimationStem>,
+    duration: f64,
+    delay: f64,
+    then: Vec<Command>,
+    finalize: Vec<Command>,
+}
 
 #[derive(Clone, Debug)]
 pub enum LayerCommand {
@@ -14,6 +35,7 @@ pub enum LayerCommand {
     SetOverlayRate(f64),
     LoadAnimationGraph(AnimationGraph),
     WaitUntilAnimationIsDone,
+    FinalizeAnimation,
     LayerDelay(f64),
 }
 
@@ -59,7 +81,11 @@ pub enum SavedataCommand {
         voice: Option<String>,
     },
     QuickSave,
+    QuickLoad,
     Save(i32),
+    Load(i32),
+    BackupSave,
+    BackupLoadIfAvailable,
 }
 
 #[derive(Clone, Debug)]
