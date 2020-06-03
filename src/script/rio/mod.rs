@@ -3,3 +3,4 @@
 //! See COMMANDS.md for more information.
 
 pub mod command;
+pub mod parser;
