@@ -146,7 +146,7 @@ impl Transpiler {
         filename: String,
         x: f64,
         y: f64,
-        reserved: i32, // should be zero
+        reserved: i32,
         entries: Vec<i32>,
     ) {
         //
