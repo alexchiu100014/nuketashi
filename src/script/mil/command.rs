@@ -76,7 +76,7 @@ pub struct FaceEntry {
 pub enum SavedataCommand {
     AddLogEntry {
         name: Option<String>,
-        face: FaceEntry,
+        face: Option<FaceEntry>,
         text: String,
         voice: Option<String>,
     },
