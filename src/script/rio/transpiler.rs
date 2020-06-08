@@ -133,11 +133,23 @@ impl Transpiler {
     }
 
     fn visit_lclear(&mut self, layer: i32) {
-        //
+        self.send(MilCommand::LayerCommand {
+            layer_no: layer,
+            command: LayerCommand::Unload,
+        });
     }
 
     fn visit_lchr(&mut self, layer: i32, filename: String, x: f64, y: f64, entry: i32) {
-        //
+        // load layer entries
+        self.send(MilCommand::LayerCommand {
+            layer_no: layer,
+            command: LayerCommand::Load(filename, vec![entry]),
+        });
+
+        self.send(MilCommand::LayerCommand {
+            layer_no: layer,
+            command: LayerCommand::SetPosition(x, y),
+        });
     }
 
     fn visit_lmont(
@@ -146,22 +158,34 @@ impl Transpiler {
         filename: String,
         x: f64,
         y: f64,
-        reserved: i32,
+        _reserved: i32,
         entries: Vec<i32>,
     ) {
-        //
+        self.send(MilCommand::LayerCommand {
+            layer_no: layer,
+            command: LayerCommand::Load(filename, entries),
+        });
+
+        self.send(MilCommand::LayerCommand {
+            layer_no: layer,
+            command: LayerCommand::SetPosition(x, y),
+        });
     }
 
     fn visit_lpriorityclear(&mut self) {
-        //
+        self.send(MilCommand::RendererCommand(
+            RendererCommand::LayerPriorityClear,
+        ));
     }
 
     fn visit_lpriority(&mut self, priority: Vec<i32>) {
-        //
+        self.send(MilCommand::RendererCommand(RendererCommand::LayerPriority(
+            priority,
+        )));
     }
 
     fn visit_emotion(&mut self, layer: i32, filename: String) {
-        //
+        // 
     }
 
     fn visit_draw(&mut self, duration: f64) {

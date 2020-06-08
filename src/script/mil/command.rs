@@ -48,6 +48,8 @@ pub enum RendererCommand {
     ClearFace,
     PushFace(FaceEntry),
     Dialogue(Option<String>, String),
+    LayerPriorityClear,
+    LayerPriority(Vec<i32>),
 }
 
 #[derive(Clone, Debug)]
@@ -88,6 +90,8 @@ pub enum SavedataCommand {
     BackupLoadIfAvailable,
 }
 
+use crate::script::rio::command::Command as RioCommand;
+
 #[derive(Clone, Debug)]
 pub enum Command {
     LayerCommand {
@@ -98,4 +102,6 @@ pub enum Command {
     RuntimeCommand(RuntimeCommand),
     SavedataCommand(SavedataCommand),
     MmCommand(MmCommand),
+    // for fallback
+    UnsupportedCommand(RioCommand),
 }
