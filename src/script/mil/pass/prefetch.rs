@@ -2,6 +2,7 @@
 //!
 //! Adds prefetch commands.
 
+use super::Pass;
 use crate::script::mil::command::{Command, LayerCommand, RuntimeCommand};
 
 #[derive(Clone, Debug, Default)]
@@ -11,8 +12,10 @@ impl PrefetchPass {
     pub fn new() -> Self {
         Default::default()
     }
+}
 
-    pub fn process(self, command: Vec<Command>) -> Vec<Command> {
+impl Pass for PrefetchPass {
+    fn process(self, command: Vec<Command>) -> Vec<Command> {
         let command_chunks = command.split(|v| {
             if let Command::RuntimeCommand(RuntimeCommand::WaitUntilUserEvent) = v {
                 true
@@ -20,7 +23,7 @@ impl PrefetchPass {
                 false
             }
         });
-        
+
         let mut prefetch = vec![];
         let mut postfetch = vec![];
         let mut output = vec![];
@@ -38,11 +41,11 @@ impl PrefetchPass {
                 match cmd {
                     Command::LayerCommand {
                         layer_no,
-                        command: LayerCommand::Load(filename, entries)
+                        command: LayerCommand::Load(filename, entries),
                     } => {
                         prefetch.push(Command::LayerCommand {
                             layer_no: *layer_no,
-                            command: LayerCommand::Prefetch(filename.clone(), entries.clone())
+                            command: LayerCommand::Prefetch(filename.clone(), entries.clone()),
                         });
                     }
                     _ => {}
@@ -51,7 +54,7 @@ impl PrefetchPass {
                 postfetch.push(cmd.clone());
             }
         }
-        
+
         output.append(&mut prefetch);
         output.push(Command::RuntimeCommand(RuntimeCommand::WaitUntilUserEvent));
         output.append(&mut postfetch);

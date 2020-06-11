@@ -54,7 +54,7 @@ impl CubicBezier {
             if dx.abs() < EPSILON_SQ {
                 break;
             }
-            t = t - x / dx;
+            t -= x / dx;
         }
 
         let mut t0 = 0.0;

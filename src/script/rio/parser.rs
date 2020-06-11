@@ -50,19 +50,13 @@ where
         let mut dialogue_buffer: Vec<String> = vec![];
         let mut commands = Vec::new();
 
-        let mut line_number = 0;
-
         'l: loop {
             // make sure that the buffer is clear
             buf.clear();
 
-            line_number += 1;
-
             if self.reader.read_line(&mut buf)? == 0 {
                 break 'l;
             }
-
-            println!("{:?}", line_number);
 
             let cmd = buf.trim_end_matches(|p| p == '\n' || p == '\r');
 
@@ -282,7 +276,7 @@ impl<R> Parser<R> {
         if args[0] == "0" {
             return Command::Unknown;
         }
-        
+
         Command::Ex {
             name: args[0].into(),
             x: args.get(1).unwrap_or(&"0").parse().unwrap(),
@@ -300,7 +294,11 @@ impl<R> Parser<R> {
     fn visit_ldelay(&self, args: &[&str]) -> Command {
         if args[0] == "T" {
             return Command::LDelayAll {
-                duration: args.get(1).copied().and_then(Self::parse_duration).unwrap_or(0.0),
+                duration: args
+                    .get(1)
+                    .copied()
+                    .and_then(Self::parse_duration)
+                    .unwrap_or(0.0),
             };
         }
 
@@ -308,22 +306,24 @@ impl<R> Parser<R> {
 
         Command::LDelay {
             layer: args[0].parse().unwrap(),
-            duration: args.get(2).copied().and_then(Self::parse_duration).unwrap_or(0.0),
+            duration: args
+                .get(2)
+                .copied()
+                .and_then(Self::parse_duration)
+                .unwrap_or(0.0),
         }
     }
 
     fn parse_duration(duration: &str) -> Option<f64> {
-        duration.parse::<f64>()
-        .ok()
-                        .or_else(|| {
-                            if duration.ends_with("ms") || duration.ends_with("MS") {
-                                duration[..duration.len()-2].parse::<f64>().ok()
-                            } else if duration.ends_with("s") || duration.ends_with("S") {
-                                Some(duration[..duration.len()-1].parse::<f64>().ok()? * 1000.0)
-                            } else {
-                                None
-                            }
-                        })
+        duration.parse::<f64>().ok().or_else(|| {
+            if duration.ends_with("ms") || duration.ends_with("MS") {
+                duration[..duration.len() - 2].parse::<f64>().ok()
+            } else if duration.ends_with('s') || duration.ends_with('S') {
+                Some(duration[..duration.len() - 1].parse::<f64>().ok()? * 1000.0)
+            } else {
+                None
+            }
+        })
     }
 
     fn visit_faceauto(&self, args: &[&str]) -> Command {
@@ -384,7 +384,7 @@ impl<R> Parser<R> {
                 unknown: args[1].parse().unwrap(),
                 channel: 0,
                 reserved_delay: args.get(2).copied().and_then(Self::parse_duration),
-            }
+            };
         }
 
         Command::SE {
@@ -437,9 +437,9 @@ fn parse_all_rio_script() {
 
                 let path = entry.path();
                 if let Some(extension) = path.extension() {
-                    if extension  == "TXT" {
+                    if extension == "TXT" {
                         println!("{:?}", path);
-    
+
                         let mut parser = Parser::open(path).unwrap();
                         println!("{:#?}", parser.parse());
                     }

@@ -64,10 +64,7 @@ pub enum MmCommand {
     PlayMovie(String),
     PlaySE(i32, String),
     PlayVoice(String),
-    PlayMusic {
-        filename: String,
-        is_looped: bool,
-    },
+    PlayMusic { filename: String, is_looped: bool },
     FadeSE(i32, f64),
     FadeMusic(f64),
 }
@@ -97,6 +94,7 @@ pub enum SavedataCommand {
 #[derive(Clone, Debug)]
 pub enum PassCommand {
     FaceAuto(bool),
+    AddEntry,
 }
 
 use crate::script::rio::command::Command as RioCommand;
