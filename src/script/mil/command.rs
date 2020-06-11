@@ -50,6 +50,7 @@ pub enum RendererCommand {
     Dialogue(Option<String>, String),
     LayerPriorityClear,
     LayerPriority(Vec<i32>),
+    Draw,
 }
 
 #[derive(Clone, Debug)]
@@ -63,15 +64,18 @@ pub enum MmCommand {
     PlayMovie(String),
     PlaySE(i32, String),
     PlayVoice(String),
-    PlayMusic(String),
+    PlayMusic {
+        filename: String,
+        is_looped: bool,
+    },
     FadeSE(i32, f64),
     FadeMusic(f64),
 }
 
 #[derive(Clone, Debug)]
 pub struct FaceEntry {
-    filename: String,
-    entries: Vec<i32>,
+    pub(crate) filename: String,
+    pub(crate) entries: Vec<i32>,
 }
 
 #[derive(Clone, Debug)]
@@ -90,6 +94,11 @@ pub enum SavedataCommand {
     BackupLoadIfAvailable,
 }
 
+#[derive(Clone, Debug)]
+pub enum PassCommand {
+    FaceAuto(bool),
+}
+
 use crate::script::rio::command::Command as RioCommand;
 
 #[derive(Clone, Debug)]
@@ -104,4 +113,6 @@ pub enum Command {
     MmCommand(MmCommand),
     // for fallback
     UnsupportedCommand(RioCommand),
+    // for passes
+    PassCommand(PassCommand),
 }

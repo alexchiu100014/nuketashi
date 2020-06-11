@@ -1,14 +1,13 @@
 use super::command::Command;
 use crate::script::mil::command::{
-    Command as MilCommand, LayerCommand, MmCommand, RendererCommand, RuntimeCommand,
+    Command as MilCommand, FaceEntry, LayerCommand, MmCommand, RendererCommand, RuntimeCommand,
     SavedataCommand,
 };
 
 #[derive(Clone, Debug, Default)]
 pub struct Transpiler {
     commands: Vec<Command>,
-    current_chunk: Vec<MilCommand>,
-    chunks: Vec<Vec<MilCommand>>,
+    transpiled: Vec<MilCommand>,
 }
 
 impl Transpiler {
@@ -97,18 +96,13 @@ impl Transpiler {
 
         // populate prefetch commands
 
-        vec![]
+        self.transpiled
     }
 }
 
 impl Transpiler {
-    fn flush_chuck(&mut self) {
-        let chunk = std::mem::replace(&mut self.current_chunk, vec![]);
-        self.chunks.push(chunk);
-    }
-
     fn send(&mut self, command: MilCommand) {
-        self.current_chunk.push(command);
+        self.transpiled.push(command);
     }
 }
 
@@ -129,7 +123,8 @@ impl Transpiler {
             voice: None,
         }));
 
-        self.flush_chuck();
+        // wait until user event
+        self.send(MilCommand::RuntimeCommand(RuntimeCommand::WaitUntilUserEvent));
     }
 
     fn visit_lclear(&mut self, layer: i32) {
@@ -185,59 +180,74 @@ impl Transpiler {
     }
 
     fn visit_emotion(&mut self, layer: i32, filename: String) {
-        // 
+        log::error!("$EMOTION unimplemented");
     }
 
     fn visit_draw(&mut self, duration: f64) {
-        //
+        self.send(MilCommand::RendererCommand(RendererCommand::Draw));
     }
 
     fn visit_draw_ex_empty(&mut self, duration: f64, unknown: f64) {
-        //
+        log::error!("$DRAW_EX unimplemented");
     }
 
     fn visit_draw_ex(&mut self, filename: String, duration: f64, reserved_overlay_mode: i32) {
-        //
+        log::error!("$DRAW_EX unimplemented");
     }
 
     fn visit_ex(&mut self, name: String, x: i32, y: i32) {
-        //
+        log::error!("$EX unimplemented");
     }
 
     fn visit_achr(&mut self, id: i32, args: Vec<String>) {
-        //
+        match id {
+            _ => log::error!("unsupported animation: {}", id),
+        }
     }
 
     fn visit_ldelay(&mut self, layer: i32, duration: f64) {
-        //
+        self.send(MilCommand::LayerCommand {
+            layer_no: layer,
+            command: LayerCommand::LayerDelay(duration),
+        });
     }
 
     fn visit_ldelayall(&mut self, duration: f64) {
-        //
+        for layer_no in 0..crate::constants::TOTAL_LAYERS {
+            self.send(MilCommand::LayerCommand {
+                layer_no,
+                command: LayerCommand::LayerDelay(duration),
+            });
+        }
     }
 
     fn visit_faceauto(&mut self, flag: bool) {
-        //
+        // preprocessor
     }
 
     fn visit_faceanime(&mut self, flag: bool) {
-        //
+        log::error!("face anime unimplemented");
     }
 
     fn visit_faceclear(&mut self) {
-        //
+        self.send(MilCommand::RendererCommand(RendererCommand::ClearFace));
     }
 
     fn visit_face(&mut self, filename: String, entries: Vec<i32>) {
-        //
+        self.send(MilCommand::RendererCommand(RendererCommand::PushFace(
+            FaceEntry { filename, entries },
+        )));
     }
 
     fn visit_music(&mut self, filename: String, is_looped: bool) {
-        //
+        self.send(MilCommand::MmCommand(MmCommand::PlayMusic {
+            filename,
+            is_looped,
+        }));
     }
 
     fn visit_voice(&mut self, filename: String) {
-        //
+        self.send(MilCommand::MmCommand(MmCommand::PlayVoice(filename)));
     }
 
     fn visit_se(
@@ -247,58 +257,58 @@ impl Transpiler {
         channel: i32,
         reserved_delay: Option<f64>,
     ) {
-        //
+        self.send(MilCommand::MmCommand(MmCommand::PlaySE(channel, filename)));
     }
 
     fn visit_musicfade(&mut self, duration: f64) {
-        //
+        self.send(MilCommand::MmCommand(MmCommand::FadeMusic(duration)));
     }
 
     fn visit_sefade(&mut self, duration: f64, channel: i32) {
-        //
+        self.send(MilCommand::MmCommand(MmCommand::FadeSE(channel, duration)));
     }
 
     fn visit_wait(&mut self, duration: f64) {
-        //
+        self.send(MilCommand::RuntimeCommand(RuntimeCommand::Wait(duration)));
     }
 
     fn visit_title(&mut self, title: String) {
-        //
+        // scenario metadata
+        log::info!("scenario title: {}", title);
     }
 
     fn visit_regmsg(&mut self, unknown: i32) {
-        //
+        log::error!("$REGMSG unimplemented");
     }
 
     fn visit_strflag(&mut self, unknown: i32) {
-        //
+        // for larger text?
+        log::error!("$STRFLAG unimplemented");
     }
 
     fn visit_window(&mut self, unknown: i32) {
-        //
+        log::error!("$WINDOW not implemented");
     }
 
     fn visit_label(&mut self, unknown: i32) {
-        //
+        log::error!("$WINDOW not implemented");
     }
 
     fn visit_movie(&mut self, filename: String, unknown: i32, unknown_1: i32) {
-        //
+        self.send(MilCommand::MmCommand(MmCommand::PlayMovie(filename)));
     }
 
     fn visit_effect(&mut self, unknown: i32, unknown_1: Option<f64>) {
-        //
+        log::error!("$WINDOW not implemented");
     }
 
     fn visit_gleffect(&mut self, unknown: Option<i32>) {
-        //
+        log::error!("$WINDOW not implemented");
     }
 
-    fn visit_unknown(&mut self) {
-        //
-    }
+    fn visit_unknown(&mut self) {}
 
     fn visit_facet(&mut self) {
-        //
+        log::error!("$FACET not implemented");
     }
 }
