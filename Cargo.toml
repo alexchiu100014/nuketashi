@@ -34,4 +34,4 @@ cocoa = "0.20.1"
 objc = "0.2.7"
 
 [dev-dependencies]
-png = "0.16.4"
+png = "0.16.5"
