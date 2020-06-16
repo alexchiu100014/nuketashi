@@ -4,7 +4,6 @@ use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use crate::script::state::DrawCall;
 use crate::utils::easing::Easing;
 
 use animation::{Animation, AnimationType};
@@ -92,7 +91,7 @@ impl LayerModel {
         }
     }
 
-    fn tick(&mut self, now: Instant, command_buffer: &mut Vec<DrawCall>) {
+    fn tick(&mut self, now: Instant) {
         // animate
         let animations = std::mem::replace(&mut self.animations, vec![]);
 
@@ -100,17 +99,12 @@ impl LayerModel {
             .into_iter()
             .filter_map(|a| {
                 if self.finalize_mode || (a.start_time + a.duration) < now {
-                    let layer = self.layer_no;
-
                     match &a.to {
                         &AnimationType::MoveTo(x, y) => {
-                            command_buffer.push(DrawCall::LayerMoveTo {
-                                layer,
-                                origin: (x, y),
-                            });
+                            self.origin = (x, y);
                         }
                         &AnimationType::Opacity(opacity) => {
-                            command_buffer.push(DrawCall::LayerOpacity { layer, opacity });
+                            self.opacity = opacity;
                         }
                         _ => unreachable!("all animation should be transformed to **To format"),
                     }
@@ -129,17 +123,13 @@ impl LayerModel {
                 let delta_time = (now - a.start_time).as_secs_f64();
                 let t = delta_time * a.rate;
                 let res = a.from.interpolate(&a.to, a.easing.apply(t));
-                let layer = self.layer_no;
 
                 match res {
                     AnimationType::MoveTo(x, y) => {
-                        command_buffer.push(DrawCall::LayerMoveTo {
-                            layer,
-                            origin: (x, y),
-                        });
+                        self.origin = (x, y);
                     }
                     AnimationType::Opacity(opacity) => {
-                        command_buffer.push(DrawCall::LayerOpacity { layer, opacity });
+                        self.opacity = opacity;
                     }
                     _ => unreachable!("all animation should be transformed to **To format"),
                 }
@@ -175,7 +165,7 @@ impl LayerModel {
         }
     }
 
-    pub fn poll(&mut self, now: Instant, command_buffer: &mut Vec<DrawCall>) {
+    pub fn poll(&mut self, now: Instant) {
         // set to idle (workaround for slow texture loading)
         if self.state == LayerState::WaitDraw {
             self.state = LayerState::Idle;
@@ -183,10 +173,10 @@ impl LayerModel {
 
         loop {
             // generate state
-            self.update(now, command_buffer);
+            self.update(now);
 
             // proceed current event
-            self.tick(now, command_buffer);
+            self.tick(now);
 
             if (!self.finalize_mode && LayerState::Idle != self.state)
                 || self.command_queue.is_empty()
@@ -206,8 +196,8 @@ impl LayerModel {
         self.finalize_mode = true;
     }
 
-    pub fn update(&mut self, now: Instant, command_buffer: &mut Vec<DrawCall>) {
-        let layer = self.layer_no;
+    pub fn update(&mut self, now: Instant) {
+        let _layer = self.layer_no;
 
         // if the layer is not ready, ignore
         // and let the poller finish all the event
@@ -223,40 +213,24 @@ impl LayerModel {
             Some(LayerCommand::LayerClear) => {
                 self.filename = None;
                 self.entries = vec![];
-                command_buffer.push(DrawCall::LayerClear { layer });
+                // TODO: clear layer
             }
             Some(LayerCommand::LayerLoadS25(filename)) => {
                 self.filename = Some(filename.clone());
-                command_buffer.push(DrawCall::LayerLoadS25 {
-                    layer,
-                    path: filename,
-                });
+                // TODO: load S25 image
             }
             Some(LayerCommand::LayerLoadEntries(entries)) => {
                 self.entries = entries.clone();
-                command_buffer.push(DrawCall::LayerSetCharacter {
-                    layer,
-                    pict_layers: entries,
-                });
+                // TODO: load S25 entries
             }
             Some(LayerCommand::LayerMoveTo(x, y)) => {
                 self.origin = (x, y);
-
-                command_buffer.push(DrawCall::LayerMoveTo {
-                    layer,
-                    origin: (x, y),
-                });
             }
             Some(LayerCommand::LayerOpacity(opacity)) => {
                 self.opacity = opacity;
-                command_buffer.push(DrawCall::LayerOpacity { layer, opacity });
             }
             Some(LayerCommand::LayerBlur(x, y)) => {
                 self.blur_radius = (x, y);
-                command_buffer.push(DrawCall::LayerBlur {
-                    layer,
-                    radius: (x, y),
-                });
             }
             Some(LayerCommand::LayerDelay(t)) => {
                 if self.finalize_mode {
@@ -274,19 +248,17 @@ impl LayerModel {
                 then,
             }) => {
                 let (initial_state, to) = match &to {
-                    &AnimationType::MoveTo(x, y) => {
+                    &AnimationType::MoveTo(_, _) => {
                         let (x_from, y_from) = self.origin;
-                        self.origin = (x, y);
                         (AnimationType::MoveTo(x_from, y_from), to)
                     }
-                    &AnimationType::MoveBy(x, y) => {
+                    &AnimationType::MoveBy(dx, dy) => {
                         let (x_from, y_from) = self.origin;
-                        self.origin = (self.origin.0 + x, self.origin.1 + y);
 
                         // translate MoveBy to MoveTo
                         (
                             AnimationType::MoveTo(x_from, y_from),
-                            AnimationType::MoveTo(self.origin.0, self.origin.1),
+                            AnimationType::MoveTo(x_from + dx, y_from + dy),
                         )
                     }
                     &AnimationType::Opacity(opacity) => {

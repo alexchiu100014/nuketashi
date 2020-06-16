@@ -7,7 +7,7 @@
 
 use cocoa::appkit::{NSApp, NSApplication, NSEventModifierFlags, NSMenu, NSMenuItem};
 use cocoa::base::nil;
-use cocoa::foundation::{NSAutoreleasePool, NSString, NSUInteger};
+use cocoa::foundation::{NSAutoreleasePool, NSBundle, NSString, NSUInteger};
 
 use objc::*;
 
@@ -16,6 +16,18 @@ const NSEventModifierFlagOption: NSUInteger = 1 << 19;
 
 #[allow(non_upper_case_globals)]
 const NSEventModifierFlagCommand: NSUInteger = 1 << 20;
+
+use objc::runtime::Object;
+
+#[allow(non_snake_case)]
+unsafe fn NSLocalizedString(key: &str) -> *mut Object {
+    let bundle: *mut Object = NSBundle::mainBundle();
+    let key = NSString::alloc(nil).init_str(key);
+
+    msg_send![bundle, localizedStringForKey: key
+                    value: nil
+                    table: nil]
+}
 
 // create macOS menu-bar
 pub(crate) unsafe fn create_menu_bar() {
@@ -47,18 +59,18 @@ pub(crate) unsafe fn create_menu_bar() {
     app_menu.addItem_(
         NSMenuItem::alloc(nil)
             .initWithTitle_action_keyEquivalent_(
-                NSString::alloc(nil).init_str("冷泉院桐香を非表示\0"),
+                NSLocalizedString(&format!("Hide {}", crate::constants::GAME_ENGINE_NAME)),
                 sel![hide:],
-                NSString::alloc(nil).init_str("h\0"),
+                NSString::alloc(nil).init_str("h"),
             )
             .autorelease(),
     );
 
     let hide_others = NSMenuItem::alloc(nil)
         .initWithTitle_action_keyEquivalent_(
-            NSString::alloc(nil).init_str("ほかを非表示\0"),
+            NSLocalizedString("Hide Others"),
             sel![hideOtherApplications:],
-            NSString::alloc(nil).init_str("h\0"),
+            NSString::alloc(nil).init_str("h"),
         )
         .autorelease();
 
@@ -72,9 +84,9 @@ pub(crate) unsafe fn create_menu_bar() {
     app_menu.addItem_(
         NSMenuItem::alloc(nil)
             .initWithTitle_action_keyEquivalent_(
-                NSString::alloc(nil).init_str("すべてを表示\0"),
+                NSLocalizedString("Show All"),
                 sel![unhideAllApplications:],
-                NSString::alloc(nil).init_str("\0"),
+                NSString::alloc(nil).init_str(""),
             )
             .autorelease(),
     );
@@ -83,9 +95,9 @@ pub(crate) unsafe fn create_menu_bar() {
 
     let services = NSMenuItem::alloc(nil)
         .initWithTitle_action_keyEquivalent_(
-            NSString::alloc(nil).init_str("サービス\0"),
+            NSLocalizedString("Services"),
             std::mem::zeroed(), // null-selector
-            NSString::alloc(nil).init_str("\0"),
+            NSString::alloc(nil).init_str(""),
         )
         .autorelease();
 
@@ -101,9 +113,9 @@ pub(crate) unsafe fn create_menu_bar() {
     //       currently, this performed by closing window.
     let quit_item = NSMenuItem::alloc(nil)
         .initWithTitle_action_keyEquivalent_(
-            NSString::alloc(nil).init_str("冷泉院桐香を終了\0"),
+            NSLocalizedString(&format!("Quit {}", crate::constants::GAME_ENGINE_NAME)),
             sel![performClose:],
-            NSString::alloc(nil).init_str("q\0"),
+            NSString::alloc(nil).init_str("q"),
         )
         .autorelease();
     app_menu.addItem_(quit_item);
@@ -113,14 +125,14 @@ pub(crate) unsafe fn create_menu_bar() {
     // File
     //  - Close
     let file_menu = NSMenu::new(nil).autorelease();
-    let _: () = msg_send![file_menu, setTitle: (NSString::alloc(nil).init_str("ファイル\0"))];
+    let _: () = msg_send![file_menu, setTitle: (NSLocalizedString("File"))];
 
     file_menu.addItem_(
         NSMenuItem::alloc(nil)
             .initWithTitle_action_keyEquivalent_(
-                NSString::alloc(nil).init_str("閉じる\0"),
+                NSLocalizedString("Close"),
                 sel![performClose:],
-                NSString::alloc(nil).init_str("w\0"),
+                NSString::alloc(nil).init_str("w"),
             )
             .autorelease(),
     );
@@ -130,7 +142,7 @@ pub(crate) unsafe fn create_menu_bar() {
     // File
     //  - Close
     let window_menu = NSMenu::new(nil).autorelease();
-    let _: () = msg_send![window_menu, setTitle: (NSString::alloc(nil).init_str("ウインドウ\0"))];
+    let _: () = msg_send![window_menu, setTitle: (NSLocalizedString("Window"))];
     let _: () = msg_send![app, setWindowsMenu: window_menu];
 
     window_menu_item.setSubmenu_(window_menu);
