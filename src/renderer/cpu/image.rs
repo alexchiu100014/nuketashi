@@ -2,7 +2,7 @@
 pub struct Image {
     pub width: usize,
     pub height: usize,
-    pub rgba_buffer: Vec<f32>,
+    pub rgba_buffer: Vec<u8>,
 }
 
 use s25::S25Image;
@@ -16,7 +16,6 @@ impl From<S25Image> for Image {
             .rgba_buffer
             .iter()
             .copied()
-            .map(|v| v as f32 / 255.0)
             .collect();
 
         Self {
@@ -32,13 +31,13 @@ impl Image {
         Self {
             width,
             height,
-            rgba_buffer: vec![0.0; width * height * 4],
+            rgba_buffer: vec![0; width * height * 4],
         }
     }
 
     pub fn clear(&mut self) {
         for i in &mut self.rgba_buffer {
-            *i = 0.0;
+            *i = 0;
         }
     }
 
@@ -48,7 +47,7 @@ impl Image {
 
     pub fn draw_image_buffer(
         &mut self,
-        buffer: &[f32],
+        buffer: &[u8],
         (x, y): (isize, isize),
         (width, height): (usize, usize),
     ) {
@@ -64,37 +63,38 @@ impl Image {
                         || self.width <= (px as usize)
                         || py < 0
                         || self.height <= (py as usize)
+                        || a == 0
                     {
                         continue;
                     }
-
-                    let rsrc = r.min(1.0).max(0.0);
-                    let gsrc = g.min(1.0).max(0.0);
-                    let bsrc = b.min(1.0).max(0.0);
-                    let asrc = a.min(1.0).max(0.0);
+                    
+                    let rsrc = r as u64;
+                    let gsrc = g as u64;
+                    let bsrc = b as u64;
+                    let asrc = a as u64;
 
                     if let [tr, tg, tb, ta] =
                         &mut self.rgba_buffer[(px as usize + py as usize * self.width) << 2..][..4]
                     {
-                        let rdst = *tr;
-                        let gdst = *tg;
-                        let bdst = *tb;
-                        let adst = *ta;
+                        let rdst = *tr as u64;
+                        let gdst = *tg as u64;
+                        let bdst = *tb as u64;
+                        let adst = *ta as u64;
 
-                        let oa = asrc + adst * (1.0 - asrc);
-                        if oa.abs() <= f32::EPSILON {
-                            *ta = 0.0;
+                        let oa = (255 * asrc + adst * (255 - asrc)) >> 8;
+                        if oa == 0 {
+                            *ta = 0;
                             continue;
                         }
 
-                        let or = (rsrc * asrc + rdst * adst * (1.0 - asrc)) / oa;
-                        let og = (gsrc * asrc + gdst * adst * (1.0 - asrc)) / oa;
-                        let ob = (bsrc * asrc + bdst * adst * (1.0 - asrc)) / oa;
+                        let or = (255 * rsrc * asrc + rdst * adst * (255 - asrc)) / oa;
+                        let og = (255 * gsrc * asrc + gdst * adst * (255 - asrc)) / oa;
+                        let ob = (255 * bsrc * asrc + bdst * adst * (255 - asrc)) / oa;
 
-                        *tr = or;
-                        *tg = og;
-                        *tb = ob;
-                        *ta = oa;
+                        *tr = (or >> 8) as u8;
+                        *tg = (og >> 8) as u8;
+                        *tb = (ob >> 8) as u8;
+                        *ta = oa as u8;
                     }
                 }
             }

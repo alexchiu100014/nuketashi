@@ -234,7 +234,7 @@ impl CpuImageBuffer {
 
     pub fn draw_image(
         &mut self,
-        buffer: &[f32],
+        buffer: &[u8],
         (x, y): (i32, i32),
         (width, height): (i32, i32),
         opacity: f32,
@@ -245,10 +245,10 @@ impl CpuImageBuffer {
                     let px = dx + x;
                     let py = dy + y;
 
-                    let r = r.min(1.0).max(0.0);
-                    let g = g.min(1.0).max(0.0);
-                    let b = b.min(1.0).max(0.0);
-                    let a = a.min(1.0).max(0.0) * opacity;
+                    let r = r as u64;
+                    let g = g as u64;
+                    let b = b as u64;
+                    let a = (a as f32 * opacity) as u64;
 
                     if px < 0
                         || self.width <= (px as usize)
@@ -261,13 +261,13 @@ impl CpuImageBuffer {
                     if let [tr, tg, tb, ta] =
                         &mut self.rgba_buffer[(px as usize + py as usize * self.width) << 2..][0..4]
                     {
-                        let rsrc = *tr as f32 / 255.0;
-                        let gsrc = *tg as f32 / 255.0;
-                        let bsrc = *tb as f32 / 255.0;
-                        let asrc = *ta as f32 / 255.0;
+                        let rsrc = *tr as u64;
+                        let gsrc = *tg as u64;
+                        let bsrc = *tb as u64;
+                        let asrc = *ta as u64;
 
-                        let oa = asrc + a * (1.0 - asrc);
-                        if oa.abs() <= f32::EPSILON {
+                        let oa = (255 * asrc + a * (255 - asrc)) >> 8;
+                        if oa <= 0 {
                             *tr = 0;
                             *tg = 0;
                             *tb = 0;
@@ -275,14 +275,14 @@ impl CpuImageBuffer {
                             continue;
                         }
 
-                        let or = (rsrc * asrc + r * a * (1.0 - asrc)) / oa;
-                        let og = (gsrc * asrc + g * a * (1.0 - asrc)) / oa;
-                        let ob = (bsrc * asrc + b * a * (1.0 - asrc)) / oa;
+                        let or = (255 * rsrc * asrc + r * a * (255 - asrc)) / oa;
+                        let og = (255 * gsrc * asrc + g * a * (255 - asrc)) / oa;
+                        let ob = (255 * bsrc * asrc + b * a * (255 - asrc)) / oa;
 
-                        *tr = (or * 255.0) as u8;
-                        *tg = (og * 255.0) as u8;
-                        *tb = (ob * 255.0) as u8;
-                        *ta = (oa * 255.0) as u8;
+                        *tr = (or >> 8) as u8;
+                        *tg = (og >> 8) as u8;
+                        *tb = (ob >> 8) as u8;
+                        *ta = oa as u8;
                     }
                 }
             }
