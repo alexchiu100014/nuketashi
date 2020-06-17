@@ -52,16 +52,13 @@ impl Image {
         (x, y): (isize, isize),
         (width, height): (usize, usize),
     ) {
+        assert_eq!(buffer.len(), width * height * 4);
+        
         for dx in 0..width {
             for dy in 0..height {
-                if let [r, g, b, a] = buffer[dx as usize + (dy * height) as usize..][0..4] {
+                if let [r, g, b, a] = buffer[(dx as usize + (dy * width) as usize) << 2..][..4] {
                     let px = dx as isize + x;
                     let py = dy as isize + y;
-
-                    let r = r.min(1.0).max(0.0);
-                    let g = g.min(1.0).max(0.0);
-                    let b = b.min(1.0).max(0.0);
-                    let a = a.min(1.0).max(0.0);
 
                     if px < 0
                         || self.width <= (px as usize)
@@ -71,26 +68,28 @@ impl Image {
                         continue;
                     }
 
-                    if let [tr, tg, tb, ta] =
-                        &mut self.rgba_buffer[px as usize + py as usize * self.height..][0..4]
-                    {
-                        let rsrc = *tr;
-                        let gsrc = *tg;
-                        let bsrc = *tb;
-                        let asrc = *ta;
+                    let rsrc = r.min(1.0).max(0.0);
+                    let gsrc = g.min(1.0).max(0.0);
+                    let bsrc = b.min(1.0).max(0.0);
+                    let asrc = a.min(1.0).max(0.0);
 
-                        let oa = asrc + a * (1.0 - asrc);
+                    if let [tr, tg, tb, ta] =
+                        &mut self.rgba_buffer[(px as usize + py as usize * self.width) << 2..][..4]
+                    {
+                        let rdst = *tr;
+                        let gdst = *tg;
+                        let bdst = *tb;
+                        let adst = *ta;
+
+                        let oa = asrc + adst * (1.0 - asrc);
                         if oa.abs() <= f32::EPSILON {
-                            *tr = 0.0;
-                            *tg = 0.0;
-                            *tb = 0.0;
                             *ta = 0.0;
                             continue;
                         }
 
-                        let or = (rsrc * asrc + r * a * (1.0 - asrc)) / oa;
-                        let og = (gsrc * asrc + g * a * (1.0 - asrc)) / oa;
-                        let ob = (bsrc * asrc + b * a * (1.0 - asrc)) / oa;
+                        let or = (rsrc * asrc + rdst * adst * (1.0 - asrc)) / oa;
+                        let og = (gsrc * asrc + gdst * adst * (1.0 - asrc)) / oa;
+                        let ob = (bsrc * asrc + bdst * adst * (1.0 - asrc)) / oa;
 
                         *tr = or;
                         *tg = og;

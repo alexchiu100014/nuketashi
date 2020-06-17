@@ -23,6 +23,7 @@ pub struct LayerRenderer {
     pub entries: Vec<Arc<PictLayer>>,
     pub cache: LruCache<(String, i32), Arc<PictLayer>>,
     pub framebuffer: Image,
+    pub opacity: f32,
 }
 
 impl LayerRenderer {
@@ -32,7 +33,8 @@ impl LayerRenderer {
             filename: None,
             entries: vec![],
             cache: LruCache::new(LRU_CACHE_CAPACITY),
-            framebuffer: Image::new(GAME_WINDOW_HEIGHT as usize, GAME_WINDOW_WIDTH as usize),
+            framebuffer: Image::new(GAME_WINDOW_WIDTH as usize, GAME_WINDOW_HEIGHT as usize),
+            opacity: 1.0,
         }
     }
 
@@ -106,6 +108,10 @@ impl LayerRenderer {
             self.prefetch_entry(filename, e);
         }
     }
+
+    pub fn set_opacity(&mut self, opacity: f32) {
+        self.opacity = opacity;
+    }
 }
 
 impl Renderer<CpuBackend, CpuImageBuffer> for LayerRenderer {
@@ -126,6 +132,7 @@ impl Renderer<CpuBackend, CpuImageBuffer> for LayerRenderer {
                 self.framebuffer.width as i32,
                 self.framebuffer.height as i32,
             ),
+            self.opacity,
         );
     }
 }

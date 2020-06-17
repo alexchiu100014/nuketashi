@@ -174,13 +174,13 @@ impl CpuDelegateContext {
             false,
             vec![
                 Vertex {
-                    position: [-1.0, -1.0],
+                    position: [0.0, 0.0],
                 },
                 Vertex {
-                    position: [-1.0, 1.0],
+                    position: [0.0, 1.0],
                 },
                 Vertex {
-                    position: [1.0, -1.0],
+                    position: [1.0, 0.0],
                 },
                 Vertex {
                     position: [1.0, 1.0],
@@ -232,17 +232,23 @@ impl CpuImageBuffer {
         }
     }
 
-    pub fn draw_image(&mut self, buffer: &[f32], (x, y): (i32, i32), (width, height): (i32, i32)) {
+    pub fn draw_image(
+        &mut self,
+        buffer: &[f32],
+        (x, y): (i32, i32),
+        (width, height): (i32, i32),
+        opacity: f32,
+    ) {
         for dx in 0..width {
             for dy in 0..height {
-                if let [r, g, b, a] = buffer[dx as usize + (dy * height) as usize..][0..4] {
+                if let [r, g, b, a] = buffer[(dx as usize + (dy * width) as usize) << 2..][0..4] {
                     let px = dx + x;
                     let py = dy + y;
 
                     let r = r.min(1.0).max(0.0);
                     let g = g.min(1.0).max(0.0);
                     let b = b.min(1.0).max(0.0);
-                    let a = a.min(1.0).max(0.0);
+                    let a = a.min(1.0).max(0.0) * opacity;
 
                     if px < 0
                         || self.width <= (px as usize)
@@ -253,7 +259,7 @@ impl CpuImageBuffer {
                     }
 
                     if let [tr, tg, tb, ta] =
-                        &mut self.rgba_buffer[px as usize + py as usize * self.height..][0..4]
+                        &mut self.rgba_buffer[(px as usize + py as usize * self.width) << 2..][0..4]
                     {
                         let rsrc = *tr as f32 / 255.0;
                         let gsrc = *tg as f32 / 255.0;

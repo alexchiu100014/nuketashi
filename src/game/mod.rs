@@ -1,6 +1,11 @@
 pub mod scene;
 
-pub struct Game;
+use crate::renderer::Renderer;
+use crate::renderer::cpu::layer::LayerRenderer;
+
+pub struct Game {
+    layer: LayerRenderer,
+}
 
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -13,10 +18,15 @@ impl Game {
             macos::create_menu_bar();
         }
 
-        Game
+        let mut layer = LayerRenderer::new();
+        layer.load("./test/TOHKA_02M.S25", &[1, -1, 200 + 22]);
+
+        Game {
+            layer
+        }
     }
 
-    pub fn execute(self) {
+    pub fn execute(mut self) {
         use crate::renderer::cpu::CpuSurface;
         use crate::renderer::{EventDelegate, RenderingSurface};
 
@@ -50,7 +60,8 @@ impl Game {
                         println!("fps: {:.02}", fps);
                     }
 
-                    let target = buf.draw_begin(&()).unwrap();
+                    let mut target = buf.draw_begin(&()).unwrap();
+                    self.layer.render(&mut target, &());
                     buf.draw_end(target, &());
 
                     buf.request_redraw();

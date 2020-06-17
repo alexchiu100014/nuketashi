@@ -58,8 +58,9 @@ where
             .pop_front()
             .expect("failed to obtain framebuffer");
 
-        buf.rgba_buffer.clear();
-        buf.rgba_buffer.resize(buf.width * buf.height * 4, 0x00);
+        for v in &mut buf.rgba_buffer {
+            *v = 0x00;
+        }
 
         Some(buf)
     }
