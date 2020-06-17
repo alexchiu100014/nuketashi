@@ -1,9 +1,10 @@
 use crate::format::s25::S25Archive;
-use crate::renderer::{Renderer, RenderingTarget};
+use crate::renderer::Renderer;
 
 use crate::renderer::cpu::image::Image;
 use crate::renderer::cpu::{CpuBackend, CpuImageBuffer};
 
+use std::path::Path;
 use std::sync::Arc;
 
 use lru::LruCache;
@@ -35,7 +36,7 @@ impl LayerRenderer {
         }
     }
 
-    pub fn load_entry(&mut self, entry: i32) -> Option<Arc<PictLayer>> {
+    fn load_entry(&mut self, entry: i32) -> Option<Arc<PictLayer>> {
         if entry < 0 {
             return None;
         }
@@ -50,8 +51,60 @@ impl LayerRenderer {
             image: image.into(),
         });
 
-        self.cache.put((self.filename.clone()?, entry), image.clone());
+        self.cache
+            .put((self.filename.clone()?, entry), image.clone());
+
         Some(image)
+    }
+
+    fn open_s25<P: AsRef<Path>>(filename: P) -> Option<S25Archive> {
+        S25Archive::open(filename).ok()
+    }
+
+    fn prefetch_entry(&mut self, filename: &str, entry: i32) -> Option<()> {
+        if entry < 0 || self.cache.contains(&(filename.into(), entry)) {
+            return None;
+        }
+
+        let image = if self
+            .filename
+            .as_ref()
+            .map(|v| v == filename)
+            .unwrap_or_default()
+        {
+            let mut s25 = Self::open_s25(filename)?;
+            s25.load_image(entry as usize)
+        } else {
+            self.s25.as_mut()?.load_image(entry as usize)
+        }
+        .ok()?;
+
+        let image = Arc::new(PictLayer {
+            offset: (image.metadata.offset_x, image.metadata.offset_y),
+            image: image.into(),
+        });
+
+        self.cache
+            .put((self.filename.clone()?, entry), image.clone());
+
+        Some(())
+    }
+
+    pub fn load(&mut self, filename: &str, entries: &[i32]) {
+        self.filename = Some(filename.into());
+        self.s25 = Self::open_s25(filename);
+
+        self.entries = entries
+            .iter()
+            .copied()
+            .filter_map(|e| self.load_entry(e))
+            .collect();
+    }
+
+    pub fn prefetch(&mut self, filename: &str, entries: &[i32]) {
+        for &e in entries {
+            self.prefetch_entry(filename, e);
+        }
     }
 }
 
