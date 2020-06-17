@@ -111,8 +111,7 @@ impl Transpiler {
     fn visit_dialogue(&mut self, character: Option<String>, text: String) {
         // send dialogue
         self.send(MilCommand::RendererCommand(RendererCommand::Dialogue(
-            character,
-            text,
+            character, text,
         )));
 
         // add entry to savedata

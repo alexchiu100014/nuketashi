@@ -1,4 +1,5 @@
 pub mod delegate;
+pub mod layer;
 
 use crate::renderer::vulkano::surface::VulkanoSurface;
 use crate::renderer::*;
@@ -57,7 +58,7 @@ where
             .expect("failed to obtain framebuffer");
 
         buf.rgba_buffer.clear();
-        buf.rgba_buffer.resize(buf.width * buf.height * 4, 0xFF);
+        buf.rgba_buffer.resize(buf.width * buf.height * 4, 0x00);
 
         Some(buf)
     }

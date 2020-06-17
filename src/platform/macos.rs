@@ -3,8 +3,6 @@
 // fuck Objective-C
 #![allow(clippy::let_unit_value)]
 
-// TODO: localize
-
 use cocoa::appkit::{NSApp, NSApplication, NSEventModifierFlags, NSMenu, NSMenuItem};
 use cocoa::base::nil;
 use cocoa::foundation::{NSAutoreleasePool, NSBundle, NSString, NSUInteger};

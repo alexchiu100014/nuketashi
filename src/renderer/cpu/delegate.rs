@@ -69,7 +69,7 @@ impl CpuDelegate {
         let texture = create_storage_texture(
             (width, height),
             self.surface.graphical_queue.clone(),
-            self.surface.format(),
+            Format::R8G8B8A8Unorm, //self.surface.format(),
         );
 
         let dim = width as usize * height as usize;
@@ -223,6 +223,61 @@ impl CpuImageBuffer {
                 lock.copy_from_slice(&self.rgba_buffer);
             }
             Err(err) => log::debug!("failed to obtain lock: {}", err),
+        }
+    }
+
+    pub fn clear(&mut self) {
+        for i in &mut self.rgba_buffer {
+            *i = 0x00;
+        }
+    }
+
+    pub fn draw_image(&mut self, buffer: &[f32], (x, y): (i32, i32), (width, height): (i32, i32)) {
+        for dx in 0..width {
+            for dy in 0..height {
+                if let [r, g, b, a] = buffer[dx as usize + (dy * height) as usize..][0..4] {
+                    let px = dx + x;
+                    let py = dy + y;
+
+                    let r = r.min(1.0).max(0.0);
+                    let g = g.min(1.0).max(0.0);
+                    let b = b.min(1.0).max(0.0);
+                    let a = a.min(1.0).max(0.0);
+
+                    if 0 <= px
+                        && (px as usize) <= self.width
+                        && 0 <= py
+                        && (py as usize) <= self.height
+                    {
+                        if let [tr, tg, tb, ta] =
+                            &mut self.rgba_buffer[px as usize + py as usize * self.height..][0..4]
+                        {
+                            let rsrc = *tr as f32 / 255.0;
+                            let gsrc = *tg as f32 / 255.0;
+                            let bsrc = *tb as f32 / 255.0;
+                            let asrc = *ta as f32 / 255.0;
+
+                            let oa = asrc + a * (1.0 - asrc);
+                            if oa.abs() <= f32::EPSILON {
+                                *tr = 0;
+                                *tg = 0;
+                                *tb = 0;
+                                *ta = 0;
+                                continue;
+                            }
+
+                            let or = (rsrc * asrc + r * a * (1.0 - asrc)) / oa;
+                            let og = (gsrc * asrc + g * a * (1.0 - asrc)) / oa;
+                            let ob = (bsrc * asrc + b * a * (1.0 - asrc)) / oa;
+
+                            *tr = (or * 255.0) as u8;
+                            *tg = (og * 255.0) as u8;
+                            *tb = (ob * 255.0) as u8;
+                            *ta = (oa * 255.0) as u8;
+                        }
+                    }
+                }
+            }
         }
     }
 }
