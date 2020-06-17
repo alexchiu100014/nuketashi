@@ -244,37 +244,39 @@ impl CpuImageBuffer {
                     let b = b.min(1.0).max(0.0);
                     let a = a.min(1.0).max(0.0);
 
-                    if 0 <= px
-                        && (px as usize) <= self.width
-                        && 0 <= py
-                        && (py as usize) <= self.height
+                    if px < 0
+                        || self.width <= (px as usize)
+                        || py < 0
+                        || self.height <= (py as usize)
                     {
-                        if let [tr, tg, tb, ta] =
-                            &mut self.rgba_buffer[px as usize + py as usize * self.height..][0..4]
-                        {
-                            let rsrc = *tr as f32 / 255.0;
-                            let gsrc = *tg as f32 / 255.0;
-                            let bsrc = *tb as f32 / 255.0;
-                            let asrc = *ta as f32 / 255.0;
+                        continue;
+                    }
 
-                            let oa = asrc + a * (1.0 - asrc);
-                            if oa.abs() <= f32::EPSILON {
-                                *tr = 0;
-                                *tg = 0;
-                                *tb = 0;
-                                *ta = 0;
-                                continue;
-                            }
+                    if let [tr, tg, tb, ta] =
+                        &mut self.rgba_buffer[px as usize + py as usize * self.height..][0..4]
+                    {
+                        let rsrc = *tr as f32 / 255.0;
+                        let gsrc = *tg as f32 / 255.0;
+                        let bsrc = *tb as f32 / 255.0;
+                        let asrc = *ta as f32 / 255.0;
 
-                            let or = (rsrc * asrc + r * a * (1.0 - asrc)) / oa;
-                            let og = (gsrc * asrc + g * a * (1.0 - asrc)) / oa;
-                            let ob = (bsrc * asrc + b * a * (1.0 - asrc)) / oa;
-
-                            *tr = (or * 255.0) as u8;
-                            *tg = (og * 255.0) as u8;
-                            *tb = (ob * 255.0) as u8;
-                            *ta = (oa * 255.0) as u8;
+                        let oa = asrc + a * (1.0 - asrc);
+                        if oa.abs() <= f32::EPSILON {
+                            *tr = 0;
+                            *tg = 0;
+                            *tb = 0;
+                            *ta = 0;
+                            continue;
                         }
+
+                        let or = (rsrc * asrc + r * a * (1.0 - asrc)) / oa;
+                        let og = (gsrc * asrc + g * a * (1.0 - asrc)) / oa;
+                        let ob = (bsrc * asrc + b * a * (1.0 - asrc)) / oa;
+
+                        *tr = (or * 255.0) as u8;
+                        *tg = (og * 255.0) as u8;
+                        *tb = (ob * 255.0) as u8;
+                        *ta = (oa * 255.0) as u8;
                     }
                 }
             }

@@ -1,5 +1,8 @@
 use crate::format::s25::{S25Archive, S25Image};
-use crate::renderer::Renderer;
+use crate::renderer::{Renderer, RenderingTarget};
+
+use crate::model::layer::LayerModel;
+use crate::renderer::cpu::CpuBackend;
 
 use std::sync::Arc;
 
@@ -11,4 +14,14 @@ pub struct LayerRenderer {
     pub entries: Vec<(i32, Arc<S25Image>)>,
     pub cache: LruCache<(String, i32), Arc<S25Image>>,
     pub framebuffer: Vec<f32>,
+}
+
+impl Renderer<LayerModel, CpuBackend> for LayerRenderer {
+    type Context = ();
+
+    fn render<T>(&mut self, model: &LayerModel, target: &mut T, context: &Self::Context)
+    where
+        T: RenderingTarget<CpuBackend>,
+    {
+    }
 }
