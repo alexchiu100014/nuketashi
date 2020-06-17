@@ -11,3 +11,5 @@ pub(crate) const TOTAL_LAYERS: i32 = 25;
 // font
 pub(crate) static FONT_BYTES: &[u8] =
     include_bytes!("../blob/NUKITASHI_D.WAR/ROUNDED-X-MGENPLUS-1M.TTF");
+
+pub(crate) static LRU_CACHE_CAPACITY: usize = 20;

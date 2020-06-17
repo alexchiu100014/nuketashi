@@ -1,6 +1,6 @@
 pub mod delegate;
-pub mod layer;
 pub mod image;
+pub mod layer;
 
 use crate::renderer::vulkano::surface::VulkanoSurface;
 use crate::renderer::*;

@@ -1,27 +1,78 @@
-use crate::format::s25::{S25Archive, S25Image};
+use crate::format::s25::S25Archive;
 use crate::renderer::{Renderer, RenderingTarget};
 
-use crate::model::layer::LayerModel;
-use crate::renderer::cpu::CpuBackend;
+use crate::renderer::cpu::image::Image;
+use crate::renderer::cpu::{CpuBackend, CpuImageBuffer};
 
 use std::sync::Arc;
 
 use lru::LruCache;
 
+use crate::constants::{GAME_WINDOW_HEIGHT, GAME_WINDOW_WIDTH, LRU_CACHE_CAPACITY};
+
+#[derive(Clone)]
+pub struct PictLayer {
+    pub image: Image,
+    pub offset: (i32, i32),
+}
+
 pub struct LayerRenderer {
     pub s25: Option<S25Archive>,
     pub filename: Option<String>,
-    pub entries: Vec<(i32, Arc<S25Image>)>,
-    pub cache: LruCache<(String, i32), Arc<S25Image>>,
-    pub framebuffer: Vec<f32>,
+    pub entries: Vec<Arc<PictLayer>>,
+    pub cache: LruCache<(String, i32), Arc<PictLayer>>,
+    pub framebuffer: Image,
 }
 
-impl Renderer<LayerModel, CpuBackend> for LayerRenderer {
+impl LayerRenderer {
+    pub fn new() -> Self {
+        Self {
+            s25: None,
+            filename: None,
+            entries: vec![],
+            cache: LruCache::new(LRU_CACHE_CAPACITY),
+            framebuffer: Image::new(GAME_WINDOW_HEIGHT as usize, GAME_WINDOW_WIDTH as usize),
+        }
+    }
+
+    pub fn load_entry(&mut self, entry: i32) -> Option<Arc<PictLayer>> {
+        if entry < 0 {
+            return None;
+        }
+
+        if let Some(cached) = self.cache.get(&(self.filename.clone()?, entry)) {
+            return Some(cached.clone());
+        }
+
+        let image = self.s25.as_mut()?.load_image(entry as usize).ok()?;
+        let image = Arc::new(PictLayer {
+            offset: (image.metadata.offset_x, image.metadata.offset_y),
+            image: image.into(),
+        });
+
+        self.cache.put((self.filename.clone()?, entry), image.clone());
+        Some(image)
+    }
+}
+
+impl Renderer<CpuBackend, CpuImageBuffer> for LayerRenderer {
     type Context = ();
 
-    fn render<T>(&mut self, model: &LayerModel, target: &mut T, context: &Self::Context)
-    where
-        T: RenderingTarget<CpuBackend>,
-    {
+    fn render(&mut self, target: &mut CpuImageBuffer, _: &Self::Context) {
+        self.framebuffer.clear();
+
+        for e in &self.entries {
+            self.framebuffer
+                .draw_image(&e.image, (e.offset.0 as isize, e.offset.1 as isize));
+        }
+
+        target.draw_image(
+            &self.framebuffer.rgba_buffer,
+            (0, 0),
+            (
+                self.framebuffer.width as i32,
+                self.framebuffer.height as i32,
+            ),
+        );
     }
 }

@@ -33,10 +33,8 @@ pub trait RenderingContext<B: GraphicBackend> {}
 pub trait RenderingTarget<B: GraphicBackend> {}
 
 /// Renderer.
-pub trait Renderer<M, B: GraphicBackend> {
+pub trait Renderer<B: GraphicBackend, T: RenderingTarget<B>> {
     type Context: RenderingContext<B>;
 
-    fn render<T>(&mut self, model: &M, target: &mut T, context: &Self::Context)
-    where
-        T: RenderingTarget<B>;
+    fn render(&mut self, target: &mut T, context: &Self::Context);
 }
