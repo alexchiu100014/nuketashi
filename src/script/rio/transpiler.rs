@@ -288,7 +288,7 @@ impl Transpiler {
     }
 
     fn visit_label(&mut self, _unknown: i32) {
-        log::error!("$WINDOW not implemented");
+        log::error!("$LABEL not implemented");
     }
 
     fn visit_movie(&mut self, filename: String, _unknown: i32, _unknown_1: i32) {
@@ -296,11 +296,11 @@ impl Transpiler {
     }
 
     fn visit_effect(&mut self, _unknown: i32, _unknown_1: Option<f64>) {
-        log::error!("$WINDOW not implemented");
+        log::error!("$EFFECT not implemented");
     }
 
     fn visit_gleffect(&mut self, _unknown: Option<i32>) {
-        log::error!("$WINDOW not implemented");
+        log::error!("$GLEFFECT not implemented");
     }
 
     fn visit_unknown(&mut self) {}

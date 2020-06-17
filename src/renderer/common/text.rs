@@ -9,7 +9,7 @@ const FONT_PADDING: f32 = 2.0;
 
 lazy_static! {
     static ref _FONT: Font<'static> =
-        { Font::try_from_bytes(FONT_BYTES).expect("error constructing a Font from bytes") };
+        Font::try_from_bytes(FONT_BYTES).expect("error constructing a Font from bytes");
 }
 
 pub fn create_font() -> &'static Font<'static> {
