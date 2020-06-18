@@ -1,8 +1,127 @@
+use super::utils;
+
 #[derive(Clone)]
 pub struct Image {
     pub width: usize,
     pub height: usize,
     pub rgba_buffer: Vec<u8>,
+}
+
+#[derive(Copy, Clone)]
+pub struct ImageSlice<'a> {
+    pub width: usize,
+    pub height: usize,
+    pub rgba_buffer: &'a [u8],
+}
+
+pub struct ImageSliceMut<'a> {
+    pub width: usize,
+    pub height: usize,
+    pub rgba_buffer: &'a mut [u8],
+}
+
+pub trait ImageView {
+    fn get(&self, x: usize, y: usize) -> Option<&[u8]>;
+    fn get_width(&self) -> usize;
+    fn get_height(&self) -> usize;
+}
+
+pub trait ImageViewMut: ImageView {
+    fn get_mut(&mut self, x: usize, y: usize) -> Option<&mut [u8]>;
+}
+
+impl ImageView for Image {
+    fn get(&self, x: usize, y: usize) -> Option<&[u8]> {
+        if x < self.width && y < self.height {
+            Some(&self.rgba_buffer[(x + y * self.width) << 2..][0..4])
+        } else {
+            None
+        }
+    }
+
+    fn get_width(&self) -> usize {
+        self.width
+    }
+
+    fn get_height(&self) -> usize {
+        self.height
+    }
+}
+
+impl ImageViewMut for Image {
+    fn get_mut(&mut self, x: usize, y: usize) -> Option<&mut [u8]> {
+        if x < self.width && y < self.height {
+            Some(&mut self.rgba_buffer[(x + y * self.width) << 2..][..4])
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a> ImageView for ImageSlice<'a> {
+    fn get(&self, x: usize, y: usize) -> Option<&[u8]> {
+        if x < self.width && y < self.height {
+            Some(&self.rgba_buffer[(x + y * self.width) << 2..][..4])
+        } else {
+            None
+        }
+    }
+
+    fn get_width(&self) -> usize {
+        self.width
+    }
+
+    fn get_height(&self) -> usize {
+        self.height
+    }
+}
+
+impl<'a> ImageView for ImageSliceMut<'a> {
+    fn get(&self, x: usize, y: usize) -> Option<&[u8]> {
+        if x < self.width && y < self.height {
+            Some(&self.rgba_buffer[(x + y * self.width) << 2..][..4])
+        } else {
+            None
+        }
+    }
+
+    fn get_width(&self) -> usize {
+        self.width
+    }
+
+    fn get_height(&self) -> usize {
+        self.height
+    }
+}
+
+impl<'a> ImageViewMut for ImageSliceMut<'a> {
+    fn get_mut(&mut self, x: usize, y: usize) -> Option<&mut [u8]> {
+        if x < self.width && y < self.height {
+            Some(&mut self.rgba_buffer[(x + y * self.width) << 2..][..4])
+        } else {
+            None
+        }
+    }
+}
+
+use std::ops::Deref;
+
+impl<'a> ImageSlice<'a> {
+    pub fn to_image(&self) -> Image {
+        Image {
+            width: self.width,
+            height: self.height,
+            rgba_buffer: self.rgba_buffer.into(),
+        }
+    }
+}
+
+impl<'a> Deref for ImageSliceMut<'a> {
+    type Target = ImageSlice<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { std::mem::transmute(&self) }
+    }
 }
 
 use s25::S25Image;
@@ -12,11 +131,7 @@ impl From<S25Image> for Image {
         let width = image.metadata.width as usize;
         let height = image.metadata.height as usize;
 
-        let rgba_buffer = image
-            .rgba_buffer
-            .iter()
-            .copied()
-            .collect();
+        let rgba_buffer = image.rgba_buffer.iter().copied().collect();
 
         Self {
             width,
@@ -36,9 +151,7 @@ impl Image {
     }
 
     pub fn clear(&mut self) {
-        for i in &mut self.rgba_buffer {
-            *i = 0;
-        }
+        crate::utils::memset(&mut self.rgba_buffer, 0x00);
     }
 
     pub fn draw_image(&mut self, image: &Image, (x, y): (isize, isize)) {
@@ -51,53 +164,12 @@ impl Image {
         (x, y): (isize, isize),
         (width, height): (usize, usize),
     ) {
-        assert_eq!(buffer.len(), width * height * 4);
-        
-        for dx in 0..width {
-            for dy in 0..height {
-                if let [r, g, b, a] = buffer[(dx as usize + (dy * width) as usize) << 2..][..4] {
-                    let px = dx as isize + x;
-                    let py = dy as isize + y;
+        let src_img = ImageSlice {
+            width,
+            height,
+            rgba_buffer: buffer,
+        };
 
-                    if px < 0
-                        || self.width <= (px as usize)
-                        || py < 0
-                        || self.height <= (py as usize)
-                        || a == 0
-                    {
-                        continue;
-                    }
-                    
-                    let rsrc = r as u64;
-                    let gsrc = g as u64;
-                    let bsrc = b as u64;
-                    let asrc = a as u64;
-
-                    if let [tr, tg, tb, ta] =
-                        &mut self.rgba_buffer[(px as usize + py as usize * self.width) << 2..][..4]
-                    {
-                        let rdst = *tr as u64;
-                        let gdst = *tg as u64;
-                        let bdst = *tb as u64;
-                        let adst = *ta as u64;
-
-                        let oa = (255 * asrc + adst * (255 - asrc)) >> 8;
-                        if oa == 0 {
-                            *ta = 0;
-                            continue;
-                        }
-
-                        let or = (255 * rsrc * asrc + rdst * adst * (255 - asrc)) / oa;
-                        let og = (255 * gsrc * asrc + gdst * adst * (255 - asrc)) / oa;
-                        let ob = (255 * bsrc * asrc + bdst * adst * (255 - asrc)) / oa;
-
-                        *tr = (or >> 8) as u8;
-                        *tg = (og >> 8) as u8;
-                        *tb = (ob >> 8) as u8;
-                        *ta = oa as u8;
-                    }
-                }
-            }
-        }
+        utils::alpha_blend(&src_img, self, (x, y), 1.0);
     }
 }

@@ -227,9 +227,7 @@ impl CpuImageBuffer {
     }
 
     pub fn clear(&mut self) {
-        for i in &mut self.rgba_buffer {
-            *i = 0x00;
-        }
+        crate::utils::memset(&mut self.rgba_buffer, 0x00);
     }
 
     pub fn draw_image(
@@ -239,54 +237,22 @@ impl CpuImageBuffer {
         (width, height): (i32, i32),
         opacity: f32,
     ) {
-        for dx in 0..width {
-            for dy in 0..height {
-                if let [r, g, b, a] = buffer[(dx as usize + (dy * width) as usize) << 2..][0..4] {
-                    let px = dx + x;
-                    let py = dy + y;
+        use super::image::{ImageSlice, ImageSliceMut};
+        use super::utils;
 
-                    let r = r as u64;
-                    let g = g as u64;
-                    let b = b as u64;
-                    let a = (a as f32 * opacity) as u64;
+        let src_img = ImageSlice {
+            width: width as usize,
+            height: height as usize,
+            rgba_buffer: buffer,
+        };
 
-                    if px < 0
-                        || self.width <= (px as usize)
-                        || py < 0
-                        || self.height <= (py as usize)
-                    {
-                        continue;
-                    }
+        let mut dst_img = ImageSliceMut {
+            width: self.width,
+            height: self.height,
+            rgba_buffer: &mut self.rgba_buffer,
+        };
 
-                    if let [tr, tg, tb, ta] =
-                        &mut self.rgba_buffer[(px as usize + py as usize * self.width) << 2..][0..4]
-                    {
-                        let rsrc = *tr as u64;
-                        let gsrc = *tg as u64;
-                        let bsrc = *tb as u64;
-                        let asrc = *ta as u64;
-
-                        let oa = (255 * asrc + a * (255 - asrc)) >> 8;
-                        if oa <= 0 {
-                            *tr = 0;
-                            *tg = 0;
-                            *tb = 0;
-                            *ta = 0;
-                            continue;
-                        }
-
-                        let or = (255 * rsrc * asrc + r * a * (255 - asrc)) / oa;
-                        let og = (255 * gsrc * asrc + g * a * (255 - asrc)) / oa;
-                        let ob = (255 * bsrc * asrc + b * a * (255 - asrc)) / oa;
-
-                        *tr = (or >> 8) as u8;
-                        *tg = (og >> 8) as u8;
-                        *tb = (ob >> 8) as u8;
-                        *ta = oa as u8;
-                    }
-                }
-            }
-        }
+        utils::alpha_blend(&src_img, &mut dst_img, (x as isize, y as isize), opacity);
     }
 }
 

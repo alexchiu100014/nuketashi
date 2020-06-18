@@ -1,7 +1,7 @@
 pub mod scene;
 
-use crate::renderer::Renderer;
 use crate::renderer::cpu::layer::LayerRenderer;
+use crate::renderer::Renderer;
 
 pub struct Game {
     layer: LayerRenderer,
@@ -21,9 +21,7 @@ impl Game {
         let mut layer = LayerRenderer::new();
         layer.load("./test/TOHKA_02M.S25", &[1, -1, 200 + 22]);
 
-        Game {
-            layer
-        }
+        Game { layer }
     }
 
     pub fn execute(mut self) {
