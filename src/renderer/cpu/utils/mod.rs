@@ -7,31 +7,45 @@ where
 {
     let opacity = (opacity.min(1.0).max(0.0) * 256.0) as u64;
 
-    for dy in 0..src.get_height() {
-        let py = dy as isize + y;
+    for dy in ((-y).max(0) as usize)
+        ..src
+            .get_height()
+            .min((-y + dest.get_height() as isize - 1) as usize)
+    {
+        let py = (dy as isize + y) as usize;
 
-        if py < 0 || dest.get_height() <= py as usize  {
-            continue;
-        }
-
-        let py = py as usize;
-
-        for dx in 0..src.get_width() {
-            let px = dx as isize + x;
-
-            if px < 0 || dest.get_width() <= px as usize {
-                continue;
-            }
-
-            let px = px as usize;
+        for dx in ((-x).max(0) as usize)
+            ..src
+                .get_width()
+                .min((-x + dest.get_width() as isize - 1) as usize)
+        {
+            let px = (dx as isize + x) as usize;
 
             if let (Some([dr, dg, db, da]), Some([sr, sg, sb, sa])) =
                 (dest.get_mut(px, py), src.get(dx, dy))
             {
+                if *sa == 0 {
+                    continue;
+                } else if *sa == 255 && opacity == 255 {
+                    *dr = *sr;
+                    *dg = *sg;
+                    *db = *sb;
+                    *da = 255;
+                    continue;
+                }
+
                 let rsrc = *sr as u64;
                 let gsrc = *sg as u64;
                 let bsrc = *sb as u64;
                 let asrc = (*sa as u64 * opacity) >> 8;
+
+                if asrc == 255 {
+                    *dr = *sr;
+                    *dg = *sg;
+                    *db = *sb;
+                    *da = 255;
+                    continue;
+                }
 
                 let rdst = *dr as u64;
                 let gdst = *dg as u64;
@@ -44,13 +58,14 @@ where
                     continue;
                 }
 
-                let or = (255 * rsrc * asrc + rdst * adst * (255 - asrc)) / oa;
-                let og = (255 * gsrc * asrc + gdst * adst * (255 - asrc)) / oa;
-                let ob = (255 * bsrc * asrc + bdst * adst * (255 - asrc)) / oa;
+                let or = ((rsrc * asrc) * 255 + rdst * adst * (255 - asrc)) / oa;
+                let og = ((gsrc * asrc) * 255 + gdst * adst * (255 - asrc)) / oa;
+                let ob = ((bsrc * asrc) * 255 + bdst * adst * (255 - asrc)) / oa;
 
                 *dr = (or >> 8) as u8;
                 *dg = (og >> 8) as u8;
                 *db = (ob >> 8) as u8;
+
                 *da = oa as u8;
             }
         }
