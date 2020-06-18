@@ -7,20 +7,23 @@ where
 {
     let opacity = (opacity.min(1.0).max(0.0) * 256.0) as u64;
 
-    for dx in 0..src.get_width() {
-        for dy in 0..src.get_height() {
+    for dy in 0..src.get_height() {
+        let py = dy as isize + y;
+
+        if py < 0 || dest.get_height() <= py as usize  {
+            continue;
+        }
+
+        let py = py as usize;
+
+        for dx in 0..src.get_width() {
             let px = dx as isize + x;
-            let py = dy as isize + y;
 
-            if px < 0 || py < 0 {
+            if px < 0 || dest.get_width() <= px as usize {
                 continue;
             }
 
-            let (px, py) = (px as usize, py as usize);
-
-            if dest.get_width() <= px || dest.get_height() <= py {
-                continue;
-            }
+            let px = px as usize;
 
             if let (Some([dr, dg, db, da]), Some([sr, sg, sb, sa])) =
                 (dest.get_mut(px, py), src.get(dx, dy))
