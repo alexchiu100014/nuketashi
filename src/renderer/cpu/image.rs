@@ -170,6 +170,12 @@ impl Image {
             rgba_buffer: buffer,
         };
 
-        utils::alpha_blend(&src_img, self, (x, y), 1.0);
+        let mut dest_img = ImageSliceMut {
+            width: self.width,
+            height: self.height,
+            rgba_buffer: &mut self.rgba_buffer,
+        };
+
+        utils::alpha_blend(&src_img, &mut dest_img, (x, y), 1.0);
     }
 }

@@ -4,7 +4,7 @@ use crate::renderer::cpu::layer::LayerRenderer;
 use crate::renderer::Renderer;
 
 pub struct Game {
-    layer: LayerRenderer,
+    layers: Vec<LayerRenderer>,
 }
 
 use winit::event::{Event, WindowEvent};
@@ -19,9 +19,14 @@ impl Game {
         }
 
         let mut layer = LayerRenderer::new();
-        layer.load("./test/TOHKA_02M.S25", &[1, -1, 200 + 22]);
+        layer.load("./test/BG14_1.S25", &[0]);
 
-        Game { layer }
+        let mut layer1 = LayerRenderer::new();
+        layer1.load("./test/TOHKA_02M.S25", &[1, -1, 200 + 22]);
+
+        Game {
+            layers: vec![layer, layer1],
+        }
     }
 
     pub fn execute(mut self) {
@@ -59,7 +64,15 @@ impl Game {
                     }
 
                     let mut target = buf.draw_begin(&()).unwrap();
-                    self.layer.render(&mut target, &());
+
+                    use rayon::prelude::*;
+
+                    self.layers.par_iter_mut().for_each(|l| l.update());
+
+                    for l in &mut self.layers {
+                        l.render(&mut target, &());
+                    }
+
                     buf.draw_end(target, &());
 
                     buf.request_redraw();
