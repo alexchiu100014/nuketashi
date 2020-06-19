@@ -10,7 +10,7 @@ pub mod script;
 pub mod utils;
 
 fn main() {
-    #[cfg(debug_assertions)]
+    // #[cfg(debug_assertions)]
     {
         use simplelog::*;
         let logger = TermLogger::new(LevelFilter::Debug, Config::default(), TerminalMode::Mixed);

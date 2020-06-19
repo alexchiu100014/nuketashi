@@ -6,6 +6,6 @@ pub mod prefetch;
 
 use crate::script::mil::command::Command;
 
-trait Pass {
+pub trait Pass {
     fn process(self, commands: Vec<Command>) -> Vec<Command>;
 }
