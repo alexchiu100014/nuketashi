@@ -23,7 +23,9 @@ pub struct LayerRenderer {
     pub entries: Vec<Arc<PictLayer>>,
     pub cache: LruCache<(String, i32), Arc<PictLayer>>,
     pub framebuffer: Image,
+    pub offset: (i32, i32),
     pub opacity: f32,
+    pub blur: Option<(usize, usize)>,
     //
     update_flag: bool,
 }
@@ -38,6 +40,8 @@ impl LayerRenderer {
             framebuffer: Image::new(GAME_WINDOW_WIDTH as usize, GAME_WINDOW_HEIGHT as usize),
             opacity: 1.0,
             update_flag: false,
+            blur: None,
+            offset: (0, 0),
         }
     }
 
@@ -128,8 +132,79 @@ impl LayerRenderer {
         self.framebuffer.clear();
 
         for e in &self.entries {
-            self.framebuffer
-                .draw_image(&e.image, (e.offset.0 as isize, e.offset.1 as isize));
+            self.framebuffer.draw_image(
+                &e.image,
+                (
+                    (self.offset.0 + e.offset.0) as isize,
+                    (self.offset.1 + e.offset.1) as isize,
+                ),
+            );
+        }
+
+        self.apply_blur();
+    }
+
+    fn apply_blur(&mut self) {
+        use crate::renderer::cpu::image::{ImageView, ImageViewMut};
+
+        if let Some((rx, ry)) = self.blur {
+            let (rx, ry) = (rx as isize, ry as isize);
+
+            // x blur
+            for y in 0..self.framebuffer.height {
+                for x in 0..self.framebuffer.width {
+                    let mut weight = 0;
+                    let mut color: [f32; 4] = [0f32; 4];
+
+                    for i in -rx..=rx {
+                        weight += 1;
+
+                        if let Some(c) = self.framebuffer.get((x as isize + i) as usize, y) {
+                            color[0] += c[0] as f32 / 255.0;
+                            color[1] += c[1] as f32 / 255.0;
+                            color[2] += c[2] as f32 / 255.0;
+                            color[3] += c[3] as f32 / 255.0;
+                        }
+                    }
+
+                    let weight = 255.0 / weight as f32;
+
+                    if let Some(target) = self.framebuffer.get_mut(x, y) {
+                        target[0] = (color[0] * weight) as u8;
+                        target[1] = (color[1] * weight) as u8;
+                        target[2] = (color[2] * weight) as u8;
+                        target[3] = (color[3] * weight) as u8;
+                    }
+                }
+            }
+            
+            // y blur
+            for y in 0..self.framebuffer.height {
+                for x in 0..self.framebuffer.width {
+                    let mut weight = 0;
+                    let mut color: [f32; 4] = [0f32; 4];
+
+                    for i in -ry..=ry {
+                        weight += 1;
+
+                        if let Some(c) = self.framebuffer.get(x, (y as isize + i) as usize) {
+                            color[0] += c[0] as f32 / 255.0;
+                            color[1] += c[1] as f32 / 255.0;
+                            color[2] += c[2] as f32 / 255.0;
+                            color[3] += c[3] as f32 / 255.0;
+                        }
+                    }
+
+                    let weight = 255.0 / weight as f32;
+
+                    if let Some(target) = self.framebuffer.get_mut(x, y) {
+                        target[0] = (color[0] * weight) as u8;
+                        target[1] = (color[1] * weight) as u8;
+                        target[2] = (color[2] * weight) as u8;
+                        target[3] = (color[3] * weight) as u8;
+                    }
+                }
+            }
         }
     }
 }
