@@ -168,63 +168,17 @@ impl Game {
                     }
 
                     // draw text & face layer
-                    target.draw_image_colored(
-                        &self.text_layer.rgba_buffer,
-                        (378, 640),
-                        (900, 300),
-                        1.0,
-                        [0, 0, 0],
-                    );
-                    target.draw_image_colored(
-                        &self.text_layer.rgba_buffer,
-                        (382, 640),
-                        (900, 300),
-                        1.0,
-                        [0, 0, 0],
-                    );
-                    target.draw_image_colored(
-                        &self.text_layer.rgba_buffer,
-                        (380, 638),
-                        (900, 300),
-                        1.0,
-                        [0, 0, 0],
-                    );
-                    target.draw_image_colored(
-                        &self.text_layer.rgba_buffer,
-                        (380, 642),
-                        (900, 300),
-                        1.0,
-                        [0, 0, 0],
-                    );
-
-                    target.draw_image_colored(
-                        &self.text_layer.rgba_buffer,
-                        (378, 638),
-                        (900, 300),
-                        1.0,
-                        [0, 0, 0],
-                    );
-                    target.draw_image_colored(
-                        &self.text_layer.rgba_buffer,
-                        (382, 642),
-                        (900, 300),
-                        1.0,
-                        [0, 0, 0],
-                    );
-                    target.draw_image_colored(
-                        &self.text_layer.rgba_buffer,
-                        (382, 638),
-                        (900, 300),
-                        1.0,
-                        [0, 0, 0],
-                    );
-                    target.draw_image_colored(
-                        &self.text_layer.rgba_buffer,
-                        (378, 642),
-                        (900, 300),
-                        1.0,
-                        [0, 0, 0],
-                    );
+                    for i in 0..=2 {
+                        for j in 0..=2 {
+                            target.draw_image_colored(
+                                &self.text_layer.rgba_buffer,
+                                (378 + (i << 1), 638 + (j << 1)),
+                                (900, 300),
+                                1.0,
+                                [0, 0, 0],
+                            );
+                        }
+                    }
 
                     target.draw_image_colored(
                         &self.text_layer.rgba_buffer,
