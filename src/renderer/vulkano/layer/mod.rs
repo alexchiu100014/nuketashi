@@ -376,7 +376,7 @@ impl LayerRenderer {
             return;
         }
 
-        log::debug!("update screen");
+        // log::debug!("update screen");
 
         if let Some((filename, entries)) = self.queued_load.take() {
             self.load(&filename, &entries, queue.clone(), pipeline.clone());
@@ -400,7 +400,7 @@ impl LayerRenderer {
             + 'static
             + Clone,
     {
-        if !self.entries.is_empty() {
+        if self.entries.is_empty() {
             return;
         }
 

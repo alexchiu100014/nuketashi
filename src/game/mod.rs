@@ -1,16 +1,17 @@
 pub mod scene;
 
-use crate::renderer::cpu::layer::LayerRenderer;
+use crate::renderer::vulkano::layer::LayerRenderer;
 use crate::renderer::Renderer;
-
-use crate::renderer::cpu::image::Image;
-
 use crate::script::mil::command::{Command as MilCommand, RendererCommand, RuntimeCommand};
+
+use vulkano::framebuffer::RenderPassAbstract;
+
+use std::sync::Arc;
 
 pub struct Game {
     layers: Vec<LayerRenderer>,
-    face_layer: LayerRenderer,
-    text_layer: Image,
+    // face_layer: LayerRenderer,
+    // text_layer: Image,
     commands: Vec<MilCommand>,
     waiting: bool,
 }
@@ -39,8 +40,6 @@ impl Game {
             layers,
             commands: vec![],
             waiting: false,
-            face_layer: LayerRenderer::new(),
-            text_layer: Image::new(900, 300),
         }
     }
 
@@ -97,7 +96,7 @@ impl Game {
     fn visit_renderer_command(&mut self, command: RendererCommand) {
         match command {
             RendererCommand::Dialogue(name, dialogue) => {
-                use crate::renderer::common::text;
+                /* use crate::renderer::common::text;
                 const FONT_HEIGHT: f32 = 44.0;
 
                 self.text_layer.clear();
@@ -108,7 +107,7 @@ impl Game {
                     &format!("{}\n{}", name.unwrap_or_default(), dialogue),
                     (self.text_layer.width, self.text_layer.height),
                     &mut self.text_layer.rgba_buffer,
-                );
+                ); */
             }
             _ => {
                 log::debug!("skipped renderer command: {:?}", command);
@@ -117,7 +116,7 @@ impl Game {
     }
 
     pub fn execute(mut self) {
-        use crate::renderer::cpu::CpuSurface;
+        use crate::renderer::vulkano::surface::VulkanoSurface;
         use crate::renderer::{EventDelegate, RenderingSurface};
 
         self.load_script();
@@ -125,9 +124,21 @@ impl Game {
         use std::time::Instant;
 
         let event_loop = EventLoop::new();
-        let mut buf = CpuSurface::new(&event_loop);
+        let mut buf = VulkanoSurface::new(&event_loop);
 
         let mut last_time = Instant::now();
+
+        use crate::renderer::vulkano::layer::LayerRenderingContext;
+        use crate::renderer::vulkano::pipeline;
+
+        let render_pass = pipeline::create_render_pass(buf.device.clone(), buf.format())
+            as Arc<dyn RenderPassAbstract + Sync + Send>;
+        let pipeline = pipeline::create_pict_layer_pipeline(buf.device.clone(), render_pass.clone());
+
+        let ctx = LayerRenderingContext {
+            render_pass,
+            pipeline: pipeline.clone(),
+        };
 
         event_loop.run(move |event, _evt_loop, control_flow| {
             buf.handle_event(&event, control_flow);
@@ -157,42 +168,27 @@ impl Game {
 
                     self.exec_script();
 
-                    let mut target = buf.draw_begin(&()).unwrap();
+                    let mut target = buf.draw_begin(&ctx).unwrap();
 
-                    use rayon::prelude::*;
-
-                    self.layers.par_iter_mut().for_each(|l| l.update());
+                    target
+                        .command_buffer
+                        .begin_render_pass(
+                            target.framebuffer.clone(),
+                            false,
+                            vec![[0.0, 0.0, 0.0, 1.0].into()],
+                        )
+                        .unwrap();
 
                     for l in &mut self.layers {
-                        l.render(&mut target, &());
+                        l.update(buf.graphical_queue.clone(), pipeline.clone());
+                        l.take_future(buf.device.clone()).flush().unwrap();
+                        l.render(&mut target, &ctx);
                     }
 
-                    // draw text & face layer
-                    for i in 0..=2 {
-                        for j in 0..=2 {
-                            target.draw_image_colored(
-                                &self.text_layer.rgba_buffer,
-                                (378 + (i << 1), 638 + (j << 1)),
-                                (900, 300),
-                                1.0,
-                                [0, 0, 0],
-                            );
-                        }
-                    }
+                    target.command_buffer.end_render_pass().unwrap();
 
-                    target.draw_image_colored(
-                        &self.text_layer.rgba_buffer,
-                        (380, 640),
-                        (900, 300),
-                        1.0,
-                        [255, 255, 255],
-                    );
-
-                    self.face_layer.render(&mut target, &());
-
-                    buf.draw_end(target, &());
-
-                    buf.request_redraw();
+                    buf.draw_end(target, &ctx);
+                    buf.surface.window().request_redraw();
 
                     last_time = now;
                 }

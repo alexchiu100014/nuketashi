@@ -16,7 +16,7 @@ use winit::window::{Window, WindowBuilder};
 
 use std::sync::Arc;
 
-use super::{instance, VulkanoBackend, VulkanoRenderingContext};
+use super::{instance, VulkanoBackend, VulkanoRenderingContext, VulkanoRenderingTarget};
 use crate::constants;
 
 use crate::renderer::{EventDelegate, RenderingContext, RenderingSurface, RenderingTarget};
@@ -40,9 +40,18 @@ pub struct VulkanoSurfaceRenderTarget {
     pub command_buffer: AutoCommandBufferBuilder,
     pub future: Box<dyn GpuFuture>,
     pub swapchain_no: usize,
+    pub dynamic_state: DynamicState,
 }
 
-impl RenderingTarget<VulkanoBackend> for VulkanoSurfaceRenderTarget {}
+impl VulkanoRenderingTarget for VulkanoSurfaceRenderTarget {
+    fn command_buffer(&mut self) -> &mut AutoCommandBufferBuilder {
+        &mut self.command_buffer
+    }
+
+    fn dynamic_state(&mut self) -> &mut DynamicState {
+        &mut self.dynamic_state
+    }
+}
 
 impl VulkanoSurface<'static> {
     pub fn new(event_loop: &EventLoop<()>) -> Self {
@@ -301,6 +310,7 @@ where
             .ok()?,
             swapchain_no: image_num,
             future,
+            dynamic_state: self.dynamic_state.clone(),
         })
     }
 
@@ -322,6 +332,8 @@ where
                 target.swapchain_no,
             )
             .then_signal_fence_and_flush();
+
+        self.dynamic_state = target.dynamic_state;
 
         match future {
             Ok(future) => {

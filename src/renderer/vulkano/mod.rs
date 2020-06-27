@@ -7,8 +7,8 @@ pub mod text;
 pub mod texture_loader;
 
 use crate::renderer::*;
+use ::vulkano::command_buffer::{AutoCommandBufferBuilder, DynamicState};
 use ::vulkano::framebuffer::RenderPassAbstract;
-use ::vulkano::command_buffer::{DynamicState, AutoCommandBufferBuilder};
 use std::sync::Arc;
 
 pub struct VulkanoBackend;
