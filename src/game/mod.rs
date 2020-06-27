@@ -3,10 +3,14 @@ pub mod scene;
 use crate::renderer::cpu::layer::LayerRenderer;
 use crate::renderer::Renderer;
 
-use crate::script::mil::command::Command as MilCommand;
+use crate::renderer::cpu::image::Image;
+
+use crate::script::mil::command::{Command as MilCommand, RendererCommand, RuntimeCommand};
 
 pub struct Game {
     layers: Vec<LayerRenderer>,
+    face_layer: LayerRenderer,
+    text_layer: Image,
     commands: Vec<MilCommand>,
     waiting: bool,
 }
@@ -15,12 +19,18 @@ use winit::event::{Event, WindowEvent, ElementState};
 use winit::event_loop::{ControlFlow, EventLoop};
 
 impl Game {
-    pub fn new() -> Self {
+    fn platform_specific_setup() {
         #[cfg(target_os = "macos")]
         unsafe {
             use crate::platform::macos;
             macos::create_menu_bar();
         }
+    }
+}
+
+impl Game {
+    pub fn new() -> Self {
+        Self::platform_specific_setup();
 
         let mut layers = vec![];
         layers.resize_with(30, || LayerRenderer::new());
@@ -29,6 +39,8 @@ impl Game {
             layers,
             commands: vec![],
             waiting: false,
+            face_layer: LayerRenderer::new(),
+            text_layer: Image::new(900, 300),
         }
     }
 
@@ -38,8 +50,8 @@ impl Game {
         use crate::script::rio::parser::Parser;
         use crate::script::rio::transpiler::Transpiler;
 
-        let script = include_bytes!("../../testcase/02_NK_23H copy.TXT");
-        let (script, _, _) = SHIFT_JIS.decode(script);
+        let script = std::fs::read("./testcase/02_NK_23H.TXT").unwrap();
+        let (script, _, _) = SHIFT_JIS.decode(&script);
 
         let mut parser = Parser::from_raw_bytes(script.as_bytes());
         let script = parser.parse().unwrap();
@@ -63,13 +75,14 @@ impl Game {
             return;
         }
 
-        use crate::script::mil::command::*;
-
         while let Some(cmd) = self.commands.pop() {
             match cmd {
                 MilCommand::RuntimeCommand(RuntimeCommand::WaitUntilUserEvent) => {
                     self.waiting = true;
                     return;
+                }
+                MilCommand::RendererCommand(r) => {
+                    self.visit_renderer_command(r);
                 }
                 MilCommand::LayerCommand {
                     layer_no, command
@@ -79,6 +92,27 @@ impl Game {
                 _ => {
                     log::debug!("skipped command: {:?}", cmd);
                 }
+            }
+        }
+    }
+
+    fn visit_renderer_command(&mut self, command: RendererCommand) {
+        match command {
+            RendererCommand::Dialogue(name, dialogue) => {
+                use crate::renderer::common::text;
+                const FONT_HEIGHT: f32 = 44.0;
+
+                self.text_layer.clear();
+
+                text::write_text_in_box(text::create_font(),
+                    FONT_HEIGHT,
+                    &format!("{}\n{}", name.unwrap_or_default(), dialogue),
+                    (self.text_layer.width, self.text_layer.height),
+                    &mut self.text_layer.rgba_buffer,
+                );
+            }
+            _ => {
+                log::debug!("skipped renderer command: {:?}", command);
             }
         }
     }
@@ -122,13 +156,6 @@ impl Game {
 
                     self.exec_script();
 
-                    #[cfg(not(debug_assertions))]
-                    {
-                        // NOTE: we need this for profiling...
-                        // should be removed in the final product.
-                        println!("fps: {:.02}", fps);
-                    }
-
                     let mut target = buf.draw_begin(&()).unwrap();
 
                     use rayon::prelude::*;
@@ -138,6 +165,21 @@ impl Game {
                     for l in &mut self.layers {
                         l.render(&mut target, &());
                     }
+
+                    // draw text & face layer
+                    target.draw_image_colored(&self.text_layer.rgba_buffer, (378, 640), (900, 300), 1.0, [0, 0, 0]);
+                    target.draw_image_colored(&self.text_layer.rgba_buffer, (382, 640), (900, 300), 1.0, [0, 0, 0]);
+                    target.draw_image_colored(&self.text_layer.rgba_buffer, (380, 638), (900, 300), 1.0, [0, 0, 0]);
+                    target.draw_image_colored(&self.text_layer.rgba_buffer, (380, 642), (900, 300), 1.0, [0, 0, 0]);
+
+                    target.draw_image_colored(&self.text_layer.rgba_buffer, (378, 638), (900, 300), 1.0, [0, 0, 0]);
+                    target.draw_image_colored(&self.text_layer.rgba_buffer, (382, 642), (900, 300), 1.0, [0, 0, 0]);
+                    target.draw_image_colored(&self.text_layer.rgba_buffer, (382, 638), (900, 300), 1.0, [0, 0, 0]);
+                    target.draw_image_colored(&self.text_layer.rgba_buffer, (378, 642), (900, 300), 1.0, [0, 0, 0]);
+
+                    target.draw_image_colored(&self.text_layer.rgba_buffer, (380, 640), (900, 300), 1.0, [255, 255, 255]);
+
+                    self.face_layer.render(&mut target, &());
 
                     buf.draw_end(target, &());
 

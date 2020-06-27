@@ -254,6 +254,32 @@ impl CpuImageBuffer {
 
         utils::alpha_blend(&src_img, &mut dst_img, (x as isize, y as isize), opacity);
     }
+
+    pub fn draw_image_colored(
+        &mut self,
+        buffer: &[u8],
+        (x, y): (i32, i32),
+        (width, height): (i32, i32),
+        opacity: f32,
+        tint: [u8; 3]
+    ) {
+        use super::image::{ImageSlice, ImageSliceMut};
+        use super::utils;
+
+        let src_img = ImageSlice {
+            width: width as usize,
+            height: height as usize,
+            rgba_buffer: buffer,
+        };
+
+        let mut dst_img = ImageSliceMut {
+            width: self.width,
+            height: self.height,
+            rgba_buffer: &mut self.rgba_buffer,
+        };
+
+        utils::alpha_blend_colored(&src_img, &mut dst_img, (x as isize, y as isize), opacity, tint);
+    }
 }
 
 impl VulkanoRenderingContext for CpuDelegateContext {
