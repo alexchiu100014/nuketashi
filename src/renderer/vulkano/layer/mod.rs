@@ -1,24 +1,23 @@
 pub mod layer_texture;
 
 use vulkano::buffer::{BufferUsage, ImmutableBuffer};
-use vulkano::command_buffer::{
-    pool::standard::StandardCommandPoolAlloc, AutoCommandBuffer, AutoCommandBufferBuilder,
-    CommandBufferExecFuture, DynamicState,
-};
+use vulkano::command_buffer::{AutoCommandBufferBuilder, DynamicState};
 use vulkano::descriptor::descriptor_set::{DescriptorSet, PersistentDescriptorSet};
 use vulkano::descriptor::PipelineLayoutAbstract;
-use vulkano::device::Queue;
+use vulkano::device::{Device, Queue};
 use vulkano::format::Format;
 use vulkano::framebuffer::RenderPassAbstract;
 use vulkano::image::ImmutableImage;
+use vulkano::pipeline::vertex::SingleBufferDefinition;
 use vulkano::pipeline::{vertex::VertexSource, GraphicsPipeline, GraphicsPipelineAbstract};
 use vulkano::sampler::{Filter, MipmapMode, Sampler, SamplerAddressMode};
-use vulkano::sync::{GpuFuture, NowFuture};
+use vulkano::sync::GpuFuture;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::format::s25::{self, S25Archive, S25Image};
+use crate::constants::LRU_CACHE_CAPACITY;
+use crate::format::s25::{S25Archive, S25Image};
 use crate::renderer::vulkano::texture_loader;
 use crate::utils::viewport;
 
@@ -47,39 +46,27 @@ vulkano::impl_vertex!(Vertex, position, uv);
 
 #[derive(Default)]
 pub struct PictLayer {
-    pub entry_no: i32,
     pub texture: Option<Texture>,
-    pub future: Option<CommandBufferExecFuture<NowFuture, AutoCommandBuffer>>,
-    pub offset: (f64, f64),
-    pub size: (f64, f64),
+    pub future: Option<Box<dyn GpuFuture>>,
     pub set: Option<Arc<dyn DescriptorSet + Sync + Send>>,
     pub vertex_buffer: Option<Arc<ImmutableBuffer<[Vertex]>>>,
-    pub vtx_future:
-        Option<CommandBufferExecFuture<NowFuture, AutoCommandBuffer<StandardCommandPoolAlloc>>>,
 }
 
 impl PictLayer {
     pub fn empty() -> Self {
-        Self {
-            entry_no: -1,
-            ..Self::default()
-        }
+        Self::default()
     }
 
     pub fn is_cached(&self) -> bool {
-        self.vtx_future.is_none()
+        self.future.is_none()
     }
 
     pub fn is_loaded(&self) -> bool {
-        self.entry_no == -1 || self.texture.is_some()
+        self.texture.is_some()
     }
 
     pub fn clear(&mut self) {
-        self.entry_no = -1;
-
-        self.vtx_future.take();
         self.future.take();
-
         self.texture.take();
         self.set.take();
         self.vertex_buffer.take();
@@ -105,9 +92,6 @@ impl PictLayer {
         let (t, f) = texture_loader::load_s25_image(image, load_queue.clone());
 
         self.texture = Some(t.clone());
-        self.future = Some(f);
-        self.offset = offset;
-        self.size = size;
 
         let sampler = Sampler::new(
             device,
@@ -138,22 +122,19 @@ impl PictLayer {
             ImmutableBuffer::from_iter(
                 [
                     Vertex {
-                        position: viewport::f_point_at(self.offset.0, self.offset.1),
+                        position: viewport::f_point_at(offset.0, offset.1),
                         uv: [0.0, 0.0],
                     },
                     Vertex {
-                        position: viewport::f_point_at(self.offset.0, self.offset.1 + self.size.1),
+                        position: viewport::f_point_at(offset.0, offset.1 + size.1),
                         uv: [0.0, 1.0],
                     },
                     Vertex {
-                        position: viewport::f_point_at(self.offset.0 + self.size.0, self.offset.1),
+                        position: viewport::f_point_at(offset.0 + size.0, offset.1),
                         uv: [1.0, 0.0],
                     },
                     Vertex {
-                        position: viewport::f_point_at(
-                            self.offset.0 + self.size.0,
-                            self.offset.1 + self.size.1,
-                        ),
+                        position: viewport::f_point_at(offset.0 + size.0, offset.1 + size.1),
                         uv: [1.0, 1.0],
                     },
                 ]
@@ -166,7 +147,7 @@ impl PictLayer {
         };
 
         self.vertex_buffer = Some(vertex_buffer);
-        self.vtx_future = Some(vtx_future);
+        self.future = Some(Box::new(f.join(vtx_future)));
     }
 
     pub fn draw<P>(
@@ -204,157 +185,206 @@ impl PictLayer {
         }
     }
 
-    pub fn join_future<'a>(&mut self, future: impl GpuFuture + 'a) -> impl GpuFuture + 'a {
-        let future = self.join_vtx_future(future);
-
-        if let Some(f) = self.future.take() {
-            Box::new(future.join(f)) as Box<dyn GpuFuture>
-        } else {
-            Box::new(future) as Box<dyn GpuFuture>
-        }
-    }
-
-    fn join_vtx_future<'a>(&mut self, future: impl GpuFuture + 'a) -> impl GpuFuture + 'a {
-        if let Some(f) = self.vtx_future.take() {
-            Box::new(future.join(f)) as Box<dyn GpuFuture>
-        } else {
-            Box::new(future) as Box<dyn GpuFuture>
-        }
+    pub fn take_future<'a>(&mut self) -> Option<Box<dyn GpuFuture>> {
+        self.future.take()
     }
 
     pub fn has_future(&self) -> bool {
-        self.vtx_future.is_some() || self.future.is_some()
+        self.future.is_some()
     }
 }
 
-#[derive(Default)]
-pub struct Layer {
-    // S25 archive that corresponds to the layer
-    pub s25_archive: Option<S25Archive>,
-    pub s25_path: Option<PathBuf>,
-    // parameters for pict layers
-    pub pict_layers: Vec<PictLayer>,
-    pub overlay: Option<Texture>,
-    pub overlay_future: Option<CommandBufferExecFuture<NowFuture, AutoCommandBuffer>>,
-    // value sent to the shader to render
-    pub overlay_mode: OverlayMode,
-    pub overlay_rate: f32, // [0, 1]
-    pub position: (f64, f64),
-    pub opacity: f32, // [0, 1]
-    pub blur_radius: (i32, i32),
+use lru::LruCache;
+use std::sync::RwLock;
+
+pub type PictLayerEntry = Arc<RwLock<PictLayer>>;
+
+pub struct LayerRenderer {
+    // .s25 thingy
+    pub s25: Option<S25Archive>,
+    pub filename: Option<String>,
+    // pict-layer entries and cache
+    pub entries: Vec<PictLayerEntry>,
+    pub cache: LruCache<(String, i32), PictLayerEntry>,
+    // property
+    pub offset: (i32, i32),
+    pub opacity: f32,
+    pub blur: Option<(i32, i32)>,
     // for optimization
-    is_visible: bool,
+    update_flag: bool,
+    queued_load: Option<(String, Vec<i32>)>,
+    queued_prefetch: Option<(String, Vec<i32>)>,
 }
 
-impl Layer {
-    pub fn load_s25<P: AsRef<Path>>(&mut self, filename: P) -> s25::Result<()> {
-        if let Some(path) = &self.s25_path {
-            if path == filename.as_ref() {
-                return Ok(());
-            }
-        }
-
-        // clear pict-layer
-        self.pict_layers.clear();
-
-        // clear layer
-        self.clear_layers();
-
-        // replace s25 file
-        self.s25_path = Some(filename.as_ref().to_path_buf());
-        self.s25_archive = Some(S25Archive::open(filename)?);
-
-        Ok(())
-    }
-
-    pub fn load_pict_layers(
-        &mut self,
-        pict_layers: &[i32],
-        // load_queue: Arc<Queue>,
-        // pipeline: Arc<GraphicsPipeline<Mv, L, Rp>>,
-    ) {
-        if self.s25_archive.is_none() {
-            log::warn!("s25 is not loaded. ignoring");
-            return;
-        }
-
-        // set the layer visible
-        self.is_visible = true;
-
-        // match the length of pict layers
-        self.pict_layers
-            .resize_with(pict_layers.len(), PictLayer::empty);
-
-        for (i, &entry) in pict_layers.iter().enumerate() {
-            let pict_layer = &mut self.pict_layers[i];
-            let entry = if entry == -1 {
-                -1
-            } else {
-                i as i32 * 100 + entry
-            };
-
-            // don't reload if the image is the same
-            if pict_layer.entry_no == entry {
-                continue;
-            }
-
-            // clear the pict-layer
-            pict_layer.clear();
-
-            // set entry number
-            pict_layer.entry_no = entry;
+impl LayerRenderer {
+    pub fn new() -> Self {
+        Self {
+            s25: None,
+            filename: None,
+            entries: vec![],
+            cache: LruCache::new(LRU_CACHE_CAPACITY),
+            opacity: 1.0,
+            update_flag: false,
+            blur: None,
+            offset: (0, 0),
+            queued_load: None,
+            queued_prefetch: None,
         }
     }
 
-    pub fn load_pict_layers_to_gpu<Mv, L, Rp>(
+    fn load_entry<Mv, L, Rp>(
         &mut self,
-        load_queue: Arc<Queue>,
+        entry: i32,
+        queue: Arc<Queue>,
+        pipeline: Arc<GraphicsPipeline<Mv, L, Rp>>,
+    ) -> Option<PictLayerEntry>
+    where
+        L: PipelineLayoutAbstract,
+        Rp: RenderPassAbstract,
+    {
+        if entry < 0 {
+            return None;
+        }
+
+        if let Some(cached) = self.cache.get(&(self.filename.clone()?, entry)) {
+            return Some(cached.clone());
+        }
+
+        let image = self.s25.as_mut()?.load_image(entry as usize).ok()?;
+        let mut layer = PictLayer::empty();
+        layer.load_gpu(image, queue, pipeline);
+
+        let layer = Arc::new(RwLock::new(layer));
+
+        self.cache
+            .put((self.filename.clone()?, entry), layer.clone());
+
+        Some(layer)
+    }
+
+    fn open_s25(filename: &str) -> Option<S25Archive> {
+        S25Archive::open(Self::lookup(filename.split('\\').last().unwrap())).ok()
+    }
+
+    fn prefetch_entry<Mv, L, Rp>(
+        &mut self,
+        filename: &str,
+        entry: i32,
+        queue: Arc<Queue>,
+        pipeline: Arc<GraphicsPipeline<Mv, L, Rp>>,
+    ) -> Option<()>
+    where
+        L: PipelineLayoutAbstract,
+        Rp: RenderPassAbstract,
+    {
+        if entry < 0 || self.cache.contains(&(filename.into(), entry)) {
+            return None;
+        }
+
+        let image = if self
+            .filename
+            .as_ref()
+            .map(|v| v == filename)
+            .unwrap_or_default()
+        {
+            let mut s25 = Self::open_s25(filename)?;
+            s25.load_image(entry as usize)
+        } else {
+            self.s25.as_mut()?.load_image(entry as usize)
+        }
+        .ok()?;
+
+        let mut layer = PictLayer::empty();
+        layer.load_gpu(image, queue, pipeline);
+
+        let layer = Arc::new(RwLock::new(layer));
+
+        self.cache
+            .put((self.filename.clone()?, entry), layer.clone());
+
+        Some(())
+    }
+
+    pub fn load<Mv, L, Rp>(
+        &mut self,
+        filename: &str,
+        entries: &[i32],
+        queue: Arc<Queue>,
         pipeline: Arc<GraphicsPipeline<Mv, L, Rp>>,
     ) where
         L: PipelineLayoutAbstract,
         Rp: RenderPassAbstract,
     {
-        if let Some(arc) = &mut self.s25_archive {
-            for layer in self.pict_layers.iter_mut() {
-                if layer.entry_no == -1 || layer.is_loaded() {
-                    continue;
-                }
+        self.filename = Some(filename.into());
+        self.s25 = Self::open_s25(filename);
 
-                let entry = layer.entry_no as usize;
+        self.entries = entries
+            .iter()
+            .copied()
+            .filter_map(|e| self.load_entry(e, queue.clone(), pipeline.clone()))
+            .collect();
 
-                let img = arc
-                    .load_image(entry)
-                    .unwrap_or_else(|_| panic!("failed to load the image entry: {}", entry));
+        self.update_flag = true;
+    }
 
-                layer.load_gpu(img, load_queue.clone(), pipeline.clone());
-            }
+    pub fn unload(&mut self) {
+        self.filename = None;
+        self.s25 = None;
+        self.entries = vec![];
+        self.update_flag = true;
+    }
+
+    pub fn prefetch<Mv, L, Rp>(
+        &mut self,
+        filename: &str,
+        entries: &[i32],
+        queue: Arc<Queue>,
+        pipeline: Arc<GraphicsPipeline<Mv, L, Rp>>,
+    ) where
+        L: PipelineLayoutAbstract,
+        Rp: RenderPassAbstract,
+    {
+        for &e in entries {
+            self.prefetch_entry(filename, e, queue.clone(), pipeline.clone());
         }
     }
 
-    pub fn load_overlay(&mut self, overlay: S25Image, load_queue: Arc<Queue>) {
-        let (t, f) = texture_loader::load_s25_image(overlay, load_queue);
-        self.overlay = Some(t);
-        self.overlay_future = Some(f);
+    pub fn set_position(&mut self, x: i32, y: i32) {
+        self.offset = (x, y);
+        self.update_flag = true;
     }
 
-    pub fn clear_layers(&mut self) {
-        // let the previous image cached
-        // self.pict_layers.clear();
-        self.is_visible = false;
-
-        self.overlay.take();
-        self.overlay_future.take();
-
-        // reset the opacity and overlay_rate
-        self.opacity = 1.0;
-        self.overlay_rate = 0.0;
-
-        // disable overlay mode
-        self.overlay_mode = OverlayMode::Disabled;
+    pub fn set_blur_rate(&mut self, rx: i32, ry: i32) {
+        self.blur = Some((rx, ry));
+        self.update_flag = true;
     }
 
-    pub fn move_to(&mut self, x: f64, y: f64) {
-        self.position = (x, y);
+    pub fn set_opacity(&mut self, opacity: f32) {
+        self.opacity = opacity;
+        self.update_flag = true;
+    }
+
+    pub fn update<Mv, L, Rp>(
+        &mut self,
+        queue: Arc<Queue>,
+        pipeline: Arc<GraphicsPipeline<Mv, L, Rp>>,
+    ) where
+        L: PipelineLayoutAbstract,
+        Rp: RenderPassAbstract,
+    {
+        if !self.update_flag {
+            return;
+        }
+
+        log::debug!("update screen");
+
+        if let Some((filename, entries)) = self.queued_load.take() {
+            self.load(&filename, &entries, queue.clone(), pipeline.clone());
+        }
+
+        if let Some((filename, entries)) = self.queued_prefetch.take() {
+            self.prefetch(&filename, &entries, queue.clone(), pipeline.clone());
+        }
     }
 
     pub fn draw<P>(
@@ -370,47 +400,196 @@ impl Layer {
             + 'static
             + Clone,
     {
-        if !self.is_visible {
+        if !self.entries.is_empty() {
             return;
         }
 
         // let all the pict-layers draw
-        for layer in &self.pict_layers {
+        for layer in &self.entries {
+            let layer = layer.read().unwrap();
+
             assert!(layer.is_cached(), "layer not cached");
 
             layer.draw(
                 builder,
                 pipeline.clone(),
                 dyn_state,
-                (self.position.0, self.position.1),
+                (self.offset.0 as f64, self.offset.1 as f64),
                 self.opacity,
-                self.blur_radius,
+                self.blur.unwrap_or_default(),
             );
         }
     }
 
-    pub fn is_cached(&self) -> bool {
-        self.pict_layers
-            .iter()
-            .fold(true, |b, l| b && l.is_cached())
-    }
+    pub fn take_future(&mut self, device: Arc<Device>) -> Box<dyn GpuFuture> {
+        let mut future = Box::new(vulkano::sync::now(device)) as Box<dyn GpuFuture>;
 
-    pub fn join_future<'a>(&mut self, future: impl GpuFuture + 'a) -> Box<dyn GpuFuture + 'a> {
-        // TODO: ugh, so many boxing...
-
-        // let all the pict-layers load
-        let mut future: Box<dyn GpuFuture + 'a> = Box::new(future);
-
-        for layer in &mut self.pict_layers {
-            if layer.has_future() {
-                future = Box::new(layer.join_future(future));
+        for layer in &self.entries {
+            let mut layer = layer.write().unwrap();
+            if let Some(f) = layer.take_future() {
+                future = Box::new(future.join(f));
             }
         }
 
-        if let Some(f) = self.overlay_future.take() {
-            Box::new(future.join(Box::new(f) as Box<dyn GpuFuture>))
-        } else {
-            future
+        future
+    }
+}
+
+use crate::renderer::vulkano::{VulkanoBackend, VulkanoRenderingContext, VulkanoRenderingTarget};
+use crate::renderer::Renderer;
+
+pub struct LayerRenderingContext {
+    pub render_pass: Arc<dyn RenderPassAbstract + Sync + Send>,
+    pub pipeline: Arc<
+        GraphicsPipeline<
+            SingleBufferDefinition<Vertex>,
+            Box<dyn PipelineLayoutAbstract + Send + Sync>,
+            Arc<dyn RenderPassAbstract + Sync + Send>,
+        >,
+    >,
+}
+
+impl VulkanoRenderingContext for LayerRenderingContext {
+    fn render_pass(&self) -> &Arc<dyn RenderPassAbstract + Sync + Send> {
+        &self.render_pass
+    }
+}
+
+impl<T> Renderer<VulkanoBackend, T> for LayerRenderer
+where
+    T: VulkanoRenderingTarget,
+{
+    type Context = LayerRenderingContext;
+
+    fn render(&mut self, target: &mut T, ctx: &Self::Context) {
+        if self.entries.is_empty() {
+            return;
         }
+
+        let state = target.dynamic_state().clone();
+
+        self.draw(target.command_buffer(), ctx.pipeline.clone(), &state);
+    }
+}
+
+// command receiver
+
+use crate::script::mil::command::LayerCommand;
+
+impl LayerRenderer {
+    pub fn send(&mut self, command: LayerCommand) {
+        match command {
+            LayerCommand::Load(filename, entries) => {
+                let entries: Vec<_> = entries
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, v)| v + (i as i32) * 100)
+                    .collect();
+
+                log::debug!("load: {}, {:?}", filename, entries);
+                self.queued_load = Some((filename, entries));
+            }
+            LayerCommand::Unload => {
+                log::debug!("unload");
+                self.unload();
+            }
+            LayerCommand::Prefetch(filename, entries) => {
+                let entries: Vec<_> = entries
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, v)| v + (i as i32) * 100)
+                    .collect();
+
+                log::debug!("prefetch: {}, {:?}", filename, entries);
+                self.queued_prefetch = Some((filename, entries));
+            }
+            LayerCommand::SetPosition(x, y) => {
+                log::debug!("position: {}, {}", x, y);
+                self.set_position(x as i32, y as i32);
+            }
+            LayerCommand::SetOpacity(opacity) => {
+                log::debug!("opacity: {}", opacity);
+                self.set_opacity(opacity as f32);
+            }
+            LayerCommand::SetBlurRate(rx, ry) => {
+                log::debug!("blur rate: ({}, {})", rx, ry);
+                self.set_blur_rate(rx, ry);
+            }
+            LayerCommand::LoadOverlay(path, entry, mode) => {
+                log::debug!("overlay: {}, {}, {}", path, entry, mode);
+                log::error!("overlay not supported");
+            } // filename, entry, overlay mode
+            LayerCommand::UnloadOverlay => {
+                log::debug!("overlay unload");
+                log::error!("overlay unload not supported");
+            }
+            LayerCommand::SetOverlayRate(rate) => {
+                log::debug!("overlay rate: {}", rate);
+                log::error!("overlay rate not supported");
+            }
+            LayerCommand::LoadAnimationGraph(graph) => {
+                log::debug!("anim graph: {:?}", graph);
+                log::error!("anim graph not supported");
+            }
+            LayerCommand::WaitUntilAnimationIsDone => {
+                log::debug!("wait until animation is done");
+                log::error!("anim not supported");
+            }
+            LayerCommand::FinalizeAnimation => {
+                log::debug!("finalize anim");
+                log::error!("anim not supported");
+            }
+            LayerCommand::LayerDelay(v) => {
+                log::debug!("layer delay: {}", v);
+                log::error!("anim not supported");
+            }
+        }
+    }
+}
+
+// directory lookup
+
+impl LayerRenderer {
+    fn lookup_into(filename: &str, dir: &Path) -> Option<PathBuf> {
+        for d in std::fs::read_dir(dir) {
+            for e in d {
+                if let Ok(entry) = e {
+                    if entry.metadata().unwrap().is_dir() {
+                        if let Some(r) = Self::lookup_into(filename, &entry.path()) {
+                            return Some(r);
+                        }
+                    }
+
+                    let path = entry.path();
+                    let entry_name = path
+                        .file_name()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_ascii_uppercase();
+                    let entry_stem = path
+                        .file_stem()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_ascii_uppercase();
+
+                    if entry_stem.ends_with("(1)")
+                        && filename.starts_with(entry_stem.trim_end_matches("(1)"))
+                    {
+                        return Some(entry.path().into());
+                    } else if entry_name == filename {
+                        return Some(entry.path().into());
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    fn lookup(filename: &str) -> PathBuf {
+        // TODO
+        Self::lookup_into(&filename.to_ascii_uppercase(), "./blob/".as_ref()).unwrap()
     }
 }
