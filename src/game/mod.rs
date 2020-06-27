@@ -15,7 +15,7 @@ pub struct Game {
     waiting: bool,
 }
 
-use winit::event::{Event, WindowEvent, ElementState};
+use winit::event::{ElementState, Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
 impl Game {
@@ -59,8 +59,8 @@ impl Game {
         let tr = Transpiler::new(script);
         let script = tr.transpile();
 
-        use crate::script::mil::pass::Pass;
         use crate::script::mil::pass::prefetch::PrefetchPass;
+        use crate::script::mil::pass::Pass;
 
         let prefetch = PrefetchPass::new();
         let mut script = prefetch.process(script);
@@ -84,9 +84,7 @@ impl Game {
                 MilCommand::RendererCommand(r) => {
                     self.visit_renderer_command(r);
                 }
-                MilCommand::LayerCommand {
-                    layer_no, command
-                } => {
+                MilCommand::LayerCommand { layer_no, command } => {
                     self.layers[layer_no as usize].send(command);
                 }
                 _ => {
@@ -104,7 +102,8 @@ impl Game {
 
                 self.text_layer.clear();
 
-                text::write_text_in_box(text::create_font(),
+                text::write_text_in_box(
+                    text::create_font(),
                     FONT_HEIGHT,
                     &format!("{}\n{}", name.unwrap_or_default(), dialogue),
                     (self.text_layer.width, self.text_layer.height),
@@ -141,9 +140,11 @@ impl Game {
                     *control_flow = ControlFlow::Exit;
                 }
                 Event::WindowEvent {
-                    event: WindowEvent::MouseInput { 
-                        state: ElementState::Released,
-                        .. },
+                    event:
+                        WindowEvent::MouseInput {
+                            state: ElementState::Released,
+                            ..
+                        },
                     ..
                 } => {
                     self.waiting = false;
@@ -167,17 +168,71 @@ impl Game {
                     }
 
                     // draw text & face layer
-                    target.draw_image_colored(&self.text_layer.rgba_buffer, (378, 640), (900, 300), 1.0, [0, 0, 0]);
-                    target.draw_image_colored(&self.text_layer.rgba_buffer, (382, 640), (900, 300), 1.0, [0, 0, 0]);
-                    target.draw_image_colored(&self.text_layer.rgba_buffer, (380, 638), (900, 300), 1.0, [0, 0, 0]);
-                    target.draw_image_colored(&self.text_layer.rgba_buffer, (380, 642), (900, 300), 1.0, [0, 0, 0]);
+                    target.draw_image_colored(
+                        &self.text_layer.rgba_buffer,
+                        (378, 640),
+                        (900, 300),
+                        1.0,
+                        [0, 0, 0],
+                    );
+                    target.draw_image_colored(
+                        &self.text_layer.rgba_buffer,
+                        (382, 640),
+                        (900, 300),
+                        1.0,
+                        [0, 0, 0],
+                    );
+                    target.draw_image_colored(
+                        &self.text_layer.rgba_buffer,
+                        (380, 638),
+                        (900, 300),
+                        1.0,
+                        [0, 0, 0],
+                    );
+                    target.draw_image_colored(
+                        &self.text_layer.rgba_buffer,
+                        (380, 642),
+                        (900, 300),
+                        1.0,
+                        [0, 0, 0],
+                    );
 
-                    target.draw_image_colored(&self.text_layer.rgba_buffer, (378, 638), (900, 300), 1.0, [0, 0, 0]);
-                    target.draw_image_colored(&self.text_layer.rgba_buffer, (382, 642), (900, 300), 1.0, [0, 0, 0]);
-                    target.draw_image_colored(&self.text_layer.rgba_buffer, (382, 638), (900, 300), 1.0, [0, 0, 0]);
-                    target.draw_image_colored(&self.text_layer.rgba_buffer, (378, 642), (900, 300), 1.0, [0, 0, 0]);
+                    target.draw_image_colored(
+                        &self.text_layer.rgba_buffer,
+                        (378, 638),
+                        (900, 300),
+                        1.0,
+                        [0, 0, 0],
+                    );
+                    target.draw_image_colored(
+                        &self.text_layer.rgba_buffer,
+                        (382, 642),
+                        (900, 300),
+                        1.0,
+                        [0, 0, 0],
+                    );
+                    target.draw_image_colored(
+                        &self.text_layer.rgba_buffer,
+                        (382, 638),
+                        (900, 300),
+                        1.0,
+                        [0, 0, 0],
+                    );
+                    target.draw_image_colored(
+                        &self.text_layer.rgba_buffer,
+                        (378, 642),
+                        (900, 300),
+                        1.0,
+                        [0, 0, 0],
+                    );
 
-                    target.draw_image_colored(&self.text_layer.rgba_buffer, (380, 640), (900, 300), 1.0, [255, 255, 255]);
+                    target.draw_image_colored(
+                        &self.text_layer.rgba_buffer,
+                        (380, 640),
+                        (900, 300),
+                        1.0,
+                        [255, 255, 255],
+                    );
 
                     self.face_layer.render(&mut target, &());
 

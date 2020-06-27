@@ -78,9 +78,13 @@ where
     }
 }
 
-
-pub fn alpha_blend_colored<I1, I2>(src: &I1, dest: &mut I2, (x, y): (isize, isize), opacity: f32, tint: [u8; 3])
-where
+pub fn alpha_blend_colored<I1, I2>(
+    src: &I1,
+    dest: &mut I2,
+    (x, y): (isize, isize),
+    opacity: f32,
+    tint: [u8; 3],
+) where
     I1: ImageView,
     I2: ImageViewMut,
 {

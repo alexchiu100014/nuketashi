@@ -261,7 +261,7 @@ impl CpuImageBuffer {
         (x, y): (i32, i32),
         (width, height): (i32, i32),
         opacity: f32,
-        tint: [u8; 3]
+        tint: [u8; 3],
     ) {
         use super::image::{ImageSlice, ImageSliceMut};
         use super::utils;
@@ -278,7 +278,13 @@ impl CpuImageBuffer {
             rgba_buffer: &mut self.rgba_buffer,
         };
 
-        utils::alpha_blend_colored(&src_img, &mut dst_img, (x as isize, y as isize), opacity, tint);
+        utils::alpha_blend_colored(
+            &src_img,
+            &mut dst_img,
+            (x as isize, y as isize),
+            opacity,
+            tint,
+        );
     }
 }
 

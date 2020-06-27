@@ -258,10 +258,11 @@ impl LayerRenderer {
     pub fn send(&mut self, command: LayerCommand) {
         match command {
             LayerCommand::Load(filename, entries) => {
-                let entries: Vec<_> = entries.into_iter()
-                                                  .enumerate()
-                                                  .map(|(i, v)| v + (i as i32) * 100)
-                                                  .collect();
+                let entries: Vec<_> = entries
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, v)| v + (i as i32) * 100)
+                    .collect();
 
                 log::debug!("load: {}, {:?}", filename, entries);
                 self.load(&filename, &entries);
@@ -271,11 +272,11 @@ impl LayerRenderer {
                 self.unload();
             }
             LayerCommand::Prefetch(filename, entries) => {
-                let entries: Vec<_> = entries.into_iter()
-                                                  .enumerate()
-                                                  .map(|(i, v)| v + (i as i32) * 100)
-                                                  .collect();
-                                                  
+                let entries: Vec<_> = entries
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, v)| v + (i as i32) * 100)
+                    .collect();
 
                 log::debug!("prefetch: {}, {:?}", filename, entries);
                 self.prefetch(&filename, &entries);
@@ -367,7 +368,6 @@ impl LayerRenderer {
 
     fn lookup(filename: &str) -> PathBuf {
         // TODO
-        Self::lookup_into(&filename.to_ascii_uppercase(), "./blob/".as_ref())
-            .unwrap()
+        Self::lookup_into(&filename.to_ascii_uppercase(), "./blob/".as_ref()).unwrap()
     }
 }
