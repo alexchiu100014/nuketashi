@@ -21,16 +21,12 @@ pub fn load_s25_image(
     let (w, h) = (image.metadata.width as u32, image.metadata.height as u32);
 
     ImmutableImage::from_iter(
-        image.rgba_buffer.into_iter(),
+        image.bgra_buffer.into_iter(),
         Dimensions::Dim2d {
             width: w,
             height: h,
         },
-        if format == Format::B8G8R8A8Srgb {
-            Format::R8G8B8A8Srgb
-        } else {
-            Format::R8G8B8A8Unorm
-        },
+        format,
         queue,
     )
     .expect("failed to load image")

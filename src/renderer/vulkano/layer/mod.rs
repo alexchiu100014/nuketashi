@@ -125,16 +125,29 @@ impl LayerRenderer {
         L: PipelineLayoutAbstract,
         Rp: RenderPassAbstract,
     {
+        use std::time::Instant;
+
         if entry < 0 || self.cache.get(&(filename.into(), entry)).is_some() {
             log::debug!("already cached: {}@{}", entry, filename);
             return None;
         }
 
-        let image = {
+        let now = Instant::now();
+
+        let image = if self
+            .filename
+            .as_ref()
+            .map(|s| s == filename)
+            .unwrap_or_default()
+        {
+            self.s25.as_mut().unwrap().load_image(entry as usize)
+        } else {
             let mut s25 = Self::open_s25(filename)?;
             s25.load_image(entry as usize)
         }
         .ok()?;
+
+        log::info!("decode took {} ms", (Instant::now() - now).as_millis());
 
         let mut layer = PictLayer::empty();
         layer.load_gpu(image, queue, pipeline, self.format);

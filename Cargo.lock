@@ -1000,9 +1000,9 @@ dependencies = [
 
 [[package]]
 name = "s25"
-version = "0.1.1"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09c73942d404c984864a1bba750b3b5a92e379b3dbcccc19cce8c65c70375bde"
+checksum = "d4e1db574074175bce198a378d7fc4e9c06b30677164b50fe0c5bb1ebaa1e0bc"
 
 [[package]]
 name = "same-file"

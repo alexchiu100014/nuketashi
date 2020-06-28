@@ -131,7 +131,7 @@ impl From<S25Image> for Image {
         let width = image.metadata.width as usize;
         let height = image.metadata.height as usize;
 
-        let rgba_buffer = image.rgba_buffer.iter().copied().collect();
+        let rgba_buffer = image.rgba_buffer().iter().copied().collect();
 
         Self {
             width,
