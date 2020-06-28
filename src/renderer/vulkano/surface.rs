@@ -19,7 +19,7 @@ use std::sync::Arc;
 use super::{instance, VulkanoBackend, VulkanoRenderingContext, VulkanoRenderingTarget};
 use crate::constants;
 
-use crate::renderer::{EventDelegate, RenderingContext, RenderingSurface, RenderingTarget};
+use crate::renderer::{EventDelegate, RenderingContext, RenderingSurface};
 
 pub struct VulkanoSurface<'a> {
     pub physical: PhysicalDevice<'a>,
@@ -50,6 +50,10 @@ impl VulkanoRenderingTarget for VulkanoSurfaceRenderTarget {
 
     fn dynamic_state(&mut self) -> &mut DynamicState {
         &mut self.dynamic_state
+    }
+
+    fn future(&mut self) -> &mut Box<dyn GpuFuture> {
+        &mut self.future
     }
 }
 

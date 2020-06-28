@@ -250,6 +250,8 @@ impl LayerRenderer {
             return Some(cached.clone());
         }
 
+        log::warn!("image not cached ({:?}@{}); might cause frame drops", entry, self.filename.as_deref().unwrap());
+
         let image = self.s25.as_mut()?.load_image(entry as usize).ok()?;
         let mut layer = PictLayer::empty();
         layer.load_gpu(image, queue, pipeline);
@@ -277,7 +279,7 @@ impl LayerRenderer {
         L: PipelineLayoutAbstract,
         Rp: RenderPassAbstract,
     {
-        if entry < 0 || self.cache.contains(&(filename.into(), entry)) {
+        if entry < 0 || self.cache.get(&(filename.into(), entry)).is_some() {
             return None;
         }
 
@@ -287,10 +289,10 @@ impl LayerRenderer {
             .map(|v| v == filename)
             .unwrap_or_default()
         {
+            self.s25.as_mut()?.load_image(entry as usize)
+        } else {
             let mut s25 = Self::open_s25(filename)?;
             s25.load_image(entry as usize)
-        } else {
-            self.s25.as_mut()?.load_image(entry as usize)
         }
         .ok()?;
 
@@ -300,7 +302,7 @@ impl LayerRenderer {
         let layer = Arc::new(RwLock::new(layer));
 
         self.cache
-            .put((self.filename.clone()?, entry), layer.clone());
+            .put((filename.into(), entry), layer.clone());
 
         Some(())
     }
@@ -344,6 +346,8 @@ impl LayerRenderer {
         L: PipelineLayoutAbstract,
         Rp: RenderPassAbstract,
     {
+        log::debug!("prefetch: {:?}@{}", entries, filename);
+
         for &e in entries {
             self.prefetch_entry(filename, e, queue.clone(), pipeline.clone());
         }
@@ -351,17 +355,14 @@ impl LayerRenderer {
 
     pub fn set_position(&mut self, x: i32, y: i32) {
         self.offset = (x, y);
-        self.update_flag = true;
     }
 
     pub fn set_blur_rate(&mut self, rx: i32, ry: i32) {
         self.blur = Some((rx, ry));
-        self.update_flag = true;
     }
 
     pub fn set_opacity(&mut self, opacity: f32) {
         self.opacity = opacity;
-        self.update_flag = true;
     }
 
     pub fn update<Mv, L, Rp>(
@@ -376,8 +377,6 @@ impl LayerRenderer {
             return;
         }
 
-        // log::debug!("update screen");
-
         if let Some((filename, entries)) = self.queued_load.take() {
             self.load(&filename, &entries, queue.clone(), pipeline.clone());
         }
@@ -385,6 +384,8 @@ impl LayerRenderer {
         if let Some((filename, entries)) = self.queued_prefetch.take() {
             self.prefetch(&filename, &entries, queue.clone(), pipeline.clone());
         }
+
+        self.update_flag = false;
     }
 
     pub fn draw<P>(
@@ -487,7 +488,9 @@ impl LayerRenderer {
                     .collect();
 
                 log::debug!("load: {}, {:?}", filename, entries);
+
                 self.queued_load = Some((filename, entries));
+                self.update_flag = true;
             }
             LayerCommand::Unload => {
                 log::debug!("unload");
@@ -501,7 +504,9 @@ impl LayerRenderer {
                     .collect();
 
                 log::debug!("prefetch: {}, {:?}", filename, entries);
+
                 self.queued_prefetch = Some((filename, entries));
+                self.update_flag = true;
             }
             LayerCommand::SetPosition(x, y) => {
                 log::debug!("position: {}, {}", x, y);

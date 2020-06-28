@@ -133,7 +133,8 @@ impl Game {
 
         let render_pass = pipeline::create_render_pass(buf.device.clone(), buf.format())
             as Arc<dyn RenderPassAbstract + Sync + Send>;
-        let pipeline = pipeline::create_pict_layer_pipeline(buf.device.clone(), render_pass.clone());
+        let pipeline =
+            pipeline::create_pict_layer_pipeline(buf.device.clone(), render_pass.clone());
 
         let ctx = LayerRenderingContext {
             render_pass,
@@ -161,6 +162,8 @@ impl Game {
                     self.waiting = false;
                 }
                 Event::RedrawRequested(_) => {
+                    use vulkano::sync::GpuFuture;
+
                     let now = Instant::now();
                     let fps = 1.0 / (now - last_time).as_secs_f64();
 
@@ -181,7 +184,8 @@ impl Game {
 
                     for l in &mut self.layers {
                         l.update(buf.graphical_queue.clone(), pipeline.clone());
-                        l.take_future(buf.device.clone()).flush().unwrap();
+                        target.future =
+                            Box::new(target.future.join(l.take_future(buf.device.clone())));
                         l.render(&mut target, &ctx);
                     }
 
