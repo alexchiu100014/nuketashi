@@ -8,11 +8,11 @@ use vulkano::buffer::ImmutableBuffer;
 use vulkano::command_buffer::{AutoCommandBufferBuilder, DynamicState};
 use vulkano::descriptor::PipelineLayoutAbstract;
 use vulkano::device::{Device, Queue};
+use vulkano::format::Format;
 use vulkano::framebuffer::RenderPassAbstract;
 use vulkano::pipeline::vertex::SingleBufferDefinition;
 use vulkano::pipeline::{vertex::VertexSource, GraphicsPipeline, GraphicsPipelineAbstract};
 use vulkano::sync::GpuFuture;
-// use vulkano::format::Format;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -53,10 +53,12 @@ pub struct LayerRenderer {
     update_flag: bool,
     queued_load: Option<(String, Vec<i32>)>,
     queued_prefetch: Option<(String, Vec<i32>)>,
+    //
+    format: Format,
 }
 
 impl LayerRenderer {
-    pub fn new() -> Self {
+    pub fn new(format: Format) -> Self {
         Self {
             s25: None,
             filename: None,
@@ -68,6 +70,7 @@ impl LayerRenderer {
             offset: (0, 0),
             queued_load: None,
             queued_prefetch: None,
+            format,
         }
     }
 
@@ -97,7 +100,7 @@ impl LayerRenderer {
 
         let image = self.s25.as_mut()?.load_image(entry as usize).ok()?;
         let mut layer = PictLayer::empty();
-        layer.load_gpu(image, queue, pipeline);
+        layer.load_gpu(image, queue, pipeline, self.format);
 
         let layer = Arc::new(RwLock::new(layer));
 
@@ -127,21 +130,14 @@ impl LayerRenderer {
             return None;
         }
 
-        let image = if self
-            .filename
-            .as_ref()
-            .map(|v| v == filename)
-            .unwrap_or_default()
-        {
-            self.s25.as_mut()?.load_image(entry as usize)
-        } else {
+        let image = {
             let mut s25 = Self::open_s25(filename)?;
             s25.load_image(entry as usize)
         }
         .ok()?;
 
         let mut layer = PictLayer::empty();
-        layer.load_gpu(image, queue, pipeline);
+        layer.load_gpu(image, queue, pipeline, self.format);
 
         let layer = Arc::new(RwLock::new(layer));
 

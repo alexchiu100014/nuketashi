@@ -3,6 +3,7 @@ use vulkano::device::{Device, DeviceExtensions, Queue};
 use vulkano::format::Format;
 use vulkano::framebuffer::{Framebuffer, FramebufferAbstract, RenderPassAbstract};
 use vulkano::image::swapchain::SwapchainImage;
+use vulkano::image::ImageUsage;
 use vulkano::instance::PhysicalDevice;
 use vulkano::pipeline::viewport::Viewport;
 use vulkano::swapchain::{FullscreenExclusive, PresentMode, Surface, SurfaceTransform, Swapchain};
@@ -94,7 +95,7 @@ impl VulkanoSurface<'static> {
             f,
             surface.window().inner_size().into(),
             1,
-            caps.supported_usage_flags,
+            ImageUsage::color_attachment(),
             &graphical_queue,
             SurfaceTransform::Identity,
             caps.supported_composite_alpha.iter().next().unwrap(),

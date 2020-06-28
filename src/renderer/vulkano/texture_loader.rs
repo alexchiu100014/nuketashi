@@ -13,6 +13,7 @@ use std::sync::Arc;
 pub fn load_s25_image(
     image: S25Image,
     queue: Arc<Queue>,
+    format: Format,
 ) -> (
     Arc<ImmutableImage<Format>>,
     CommandBufferExecFuture<NowFuture, AutoCommandBuffer>,
@@ -25,7 +26,11 @@ pub fn load_s25_image(
             width: w,
             height: h,
         },
-        Format::R8G8B8A8Unorm, // unsigned, normalized
+        if format == Format::B8G8R8A8Srgb {
+            Format::R8G8B8A8Srgb
+        } else {
+            Format::R8G8B8A8Unorm
+        },
         queue,
     )
     .expect("failed to load image")

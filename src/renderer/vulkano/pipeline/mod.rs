@@ -5,7 +5,10 @@ use vulkano::format::Format;
 use vulkano::framebuffer::{RenderPassAbstract, Subpass};
 use vulkano::pipeline::{vertex::SingleBufferDefinition, GraphicsPipeline};
 
-pub fn create_render_pass(device: Arc<Device>, format: Format) -> Arc<impl RenderPassAbstract> {
+pub fn create_render_pass(
+    device: Arc<Device>,
+    format: Format,
+) -> Arc<dyn RenderPassAbstract + Send + Sync> {
     Arc::new(
         vulkano::single_pass_renderpass!(
             device,

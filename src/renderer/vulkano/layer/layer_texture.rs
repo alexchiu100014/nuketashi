@@ -27,6 +27,8 @@ where
             sampled: true,
             transfer_source: true,
             transfer_destination: true,
+            input_attachment: true,
+            color_attachment: true,
             ..ImageUsage::none()
         },
         Some(queue.family()),

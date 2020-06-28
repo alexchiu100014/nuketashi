@@ -59,6 +59,7 @@ impl PictLayer {
         image: S25Image,
         load_queue: Arc<Queue>,
         pipeline: Arc<GraphicsPipeline<Mv, L, Rp>>,
+        format: Format,
     ) where
         L: PipelineLayoutAbstract,
     {
@@ -70,7 +71,7 @@ impl PictLayer {
             image.metadata.offset_y as f64,
         );
         let size = (image.metadata.width as f64, image.metadata.height as f64);
-        let (t, f) = texture_loader::load_s25_image(image, load_queue.clone());
+        let (t, f) = texture_loader::load_s25_image(image, load_queue.clone(), format);
 
         self.texture = Some(t.clone());
 

@@ -247,18 +247,12 @@ impl Text {
         }
     }
 
-    pub fn join_future<'a>(&mut self, future: impl GpuFuture + 'a) -> Box<dyn GpuFuture + 'a> {
-        if self.tex_future.is_some() {
-            let future_ = self
-                .tex_future
-                .take()
-                .unwrap()
-                .join(self.vtx_future.take().unwrap())
-                .join(self.idc_future.take().unwrap());
-
-            Box::new(future.join(future_))
-        } else {
-            Box::new(future)
-        }
+    pub fn take_future<'a>(&mut self) -> Option<Box<dyn GpuFuture + 'a>> {
+        Some(Box::new(
+            self.tex_future
+                .take()?
+                .join(self.vtx_future.take()?)
+                .join(self.idc_future.take()?),
+        ))
     }
 }
