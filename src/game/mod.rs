@@ -136,7 +136,7 @@ impl Game {
             render_pass,
             pipeline: pipeline.clone(),
         };
-
+        
         // for benchmark
 
         /*

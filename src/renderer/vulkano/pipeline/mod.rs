@@ -33,7 +33,7 @@ pub fn create_pict_layer_pipeline<Rp>(
     render_pass: Rp,
 ) -> Arc<
     GraphicsPipeline<
-        SingleBufferDefinition<layer::Vertex>,
+        SingleBufferDefinition<layer::pict_layer::Vertex>,
         Box<dyn PipelineLayoutAbstract + Send + Sync>,
         Rp,
     >,
@@ -48,7 +48,7 @@ where
 
     Arc::new(
         GraphicsPipeline::start()
-            .vertex_input_single_buffer::<layer::Vertex>()
+            .vertex_input_single_buffer::<layer::pict_layer::Vertex>()
             .vertex_shader(vs.main_entry_point(), ())
             .triangle_strip()
             .viewports_dynamic_scissors_irrelevant(1)

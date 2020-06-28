@@ -25,8 +25,8 @@ where
         format,
         ImageUsage {
             sampled: true,
-            color_attachment: true,
-            input_attachment: true,
+            transfer_source: true,
+            transfer_destination: true,
             ..ImageUsage::none()
         },
         Some(queue.family()),
