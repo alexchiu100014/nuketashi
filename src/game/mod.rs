@@ -121,12 +121,8 @@ impl Game {
 
         self.load_script();
 
-        use std::time::Instant;
-
         let event_loop = EventLoop::new();
         let mut buf = VulkanoSurface::new(&event_loop);
-
-        let mut last_time = Instant::now();
 
         use crate::renderer::vulkano::layer::LayerRenderingContext;
         use crate::renderer::vulkano::pipeline;
@@ -140,6 +136,17 @@ impl Game {
             render_pass,
             pipeline: pipeline.clone(),
         };
+
+        // for benchmark
+
+        /*
+        use std::time::Instant;
+        let mut last_time = Instant::now();
+        let mut click_timer = Instant::now();
+        let mut total_clicks = 0;
+        let start_time = Instant::now();
+        let mut total_frames = 0;
+        */
 
         event_loop.run(move |event, _evt_loop, control_flow| {
             buf.handle_event(&event, control_flow);
@@ -164,10 +171,29 @@ impl Game {
                 Event::RedrawRequested(_) => {
                     use vulkano::sync::GpuFuture;
 
-                    let now = Instant::now();
-                    let fps = 1.0 / (now - last_time).as_secs_f64();
+                    // for benchmark
+                    /* let now = Instant::now();
+                    let time_elapsed = (now - last_time).as_secs_f64();
 
-                    log::debug!("fps: {:.02}", fps);
+                    total_frames += 1;
+
+                    if time_elapsed > 1.0 {
+                        let fps = total_frames as f64 / time_elapsed;
+                        println!("fps, {:.02}, {:.02}", (now - start_time).as_secs_f64(), fps);
+                        last_time = now;
+                        total_frames = 0;
+                    }
+
+                    if (now - click_timer).as_secs_f64() > 0.2 {
+                        click_timer = now;
+                        total_clicks += 1;
+
+                        self.waiting = false;
+
+                        if total_clicks > 100 {
+                            *control_flow = ControlFlow::Exit;
+                        }
+                    } */
 
                     self.exec_script();
 
@@ -193,8 +219,6 @@ impl Game {
 
                     buf.draw_end(target, &ctx);
                     buf.surface.window().request_redraw();
-
-                    last_time = now;
                 }
                 _ => {}
             }

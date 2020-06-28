@@ -250,7 +250,11 @@ impl LayerRenderer {
             return Some(cached.clone());
         }
 
-        log::warn!("image not cached ({:?}@{}); might cause frame drops", entry, self.filename.as_deref().unwrap());
+        log::warn!(
+            "image not cached ({:?}@{}); might cause frame drops",
+            entry,
+            self.filename.as_deref().unwrap()
+        );
 
         let image = self.s25.as_mut()?.load_image(entry as usize).ok()?;
         let mut layer = PictLayer::empty();
@@ -280,6 +284,7 @@ impl LayerRenderer {
         Rp: RenderPassAbstract,
     {
         if entry < 0 || self.cache.get(&(filename.into(), entry)).is_some() {
+            log::debug!("already cached: {}@{}", entry, filename);
             return None;
         }
 
@@ -301,8 +306,9 @@ impl LayerRenderer {
 
         let layer = Arc::new(RwLock::new(layer));
 
-        self.cache
-            .put((filename.into(), entry), layer.clone());
+        self.cache.put((filename.into(), entry), layer.clone());
+
+        log::debug!("successfully cached: {}@{}", entry, filename);
 
         Some(())
     }
@@ -484,7 +490,7 @@ impl LayerRenderer {
                 let entries: Vec<_> = entries
                     .into_iter()
                     .enumerate()
-                    .map(|(i, v)| v + (i as i32) * 100)
+                    .map(|(i, v)| if v == -1 { -1 } else { v + (i as i32) * 100 })
                     .collect();
 
                 log::debug!("load: {}, {:?}", filename, entries);
@@ -500,7 +506,7 @@ impl LayerRenderer {
                 let entries: Vec<_> = entries
                     .into_iter()
                     .enumerate()
-                    .map(|(i, v)| v + (i as i32) * 100)
+                    .map(|(i, v)| if v == -1 { -1 } else { v + (i as i32) * 100 })
                     .collect();
 
                 log::debug!("prefetch: {}, {:?}", filename, entries);
