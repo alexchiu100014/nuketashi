@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::constants::LRU_CACHE_CAPACITY;
-use crate::format::s25::S25Archive;
+use crate::format::s25::{S25Archive, S25Image};
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub enum OverlayMode {
@@ -34,6 +34,7 @@ impl Default for OverlayMode {
 }
 
 use lru::LruCache;
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::RwLock;
 
 pub type PictLayerEntry = Arc<RwLock<PictLayer>>;
@@ -53,6 +54,10 @@ pub struct LayerRenderer {
     update_flag: bool,
     queued_load: Option<(String, Vec<i32>)>,
     queued_prefetch: Option<(String, Vec<i32>)>,
+    staged_prefetch: (
+        Sender<(String, i32, S25Image)>,
+        Receiver<(String, i32, S25Image)>,
+    ),
     //
     format: Format,
 }
@@ -70,6 +75,7 @@ impl LayerRenderer {
             offset: (0, 0),
             queued_load: None,
             queued_prefetch: None,
+            staged_prefetch: mpsc::channel(),
             format,
         }
     }
@@ -114,53 +120,6 @@ impl LayerRenderer {
         S25Archive::open(Self::lookup(filename.split('\\').last().unwrap())).ok()
     }
 
-    fn prefetch_entry<Mv, L, Rp>(
-        &mut self,
-        filename: &str,
-        entry: i32,
-        queue: Arc<Queue>,
-        pipeline: Arc<GraphicsPipeline<Mv, L, Rp>>,
-    ) -> Option<()>
-    where
-        L: PipelineLayoutAbstract,
-        Rp: RenderPassAbstract,
-    {
-        use std::time::Instant;
-
-        if entry < 0 || self.cache.get(&(filename.into(), entry)).is_some() {
-            log::debug!("already cached: {}@{}", entry, filename);
-            return None;
-        }
-
-        let now = Instant::now();
-
-        let image = if self
-            .filename
-            .as_ref()
-            .map(|s| s == filename)
-            .unwrap_or_default()
-        {
-            self.s25.as_mut().unwrap().load_image(entry as usize)
-        } else {
-            let mut s25 = Self::open_s25(filename)?;
-            s25.load_image(entry as usize)
-        }
-        .ok()?;
-
-        log::info!("decode took {} ms", (Instant::now() - now).as_millis());
-
-        let mut layer = PictLayer::empty();
-        layer.load_gpu(image, queue, pipeline, self.format);
-
-        let layer = Arc::new(RwLock::new(layer));
-
-        self.cache.put((filename.into(), entry), layer.clone());
-
-        log::debug!("successfully cached: {}@{}", entry, filename);
-
-        Some(())
-    }
-
     pub fn load<Mv, L, Rp>(
         &mut self,
         filename: &str,
@@ -190,21 +149,67 @@ impl LayerRenderer {
         self.update_flag = true;
     }
 
-    pub fn prefetch<Mv, L, Rp>(
+    pub fn prefetch(&mut self, filename: &str, entries: &[i32]) {
+        log::debug!("prefetch: {:?}@{}", entries, filename);
+
+        let sender = self.staged_prefetch.0.clone();
+        let entries: Vec<_> = entries
+            .iter()
+            .copied()
+            .filter(|&entry| {
+                if entry < 0 || self.cache.get(&(filename.into(), entry)).is_some() {
+                    log::debug!("already cached: {}@{}", entry, filename);
+                    false
+                } else {
+                    true
+                }
+            })
+            .collect();
+        let filename = filename.to_string();
+
+        std::thread::spawn(move || {
+            let mut s25 = if let Some(s25) = Self::open_s25(&filename) {
+                s25
+            } else {
+                return;
+            };
+
+            for entry in entries {
+                use std::time::Instant;
+
+                let now = Instant::now();
+                let image = if let Ok(image) = s25.load_image(entry as usize) {
+                    image
+                } else {
+                    continue;
+                };
+
+                sender.send((filename.clone(), entry, image)).unwrap();
+
+                log::info!("decode took {} ms", (Instant::now() - now).as_millis());
+            }
+        });
+    }
+
+    fn stage_image<Mv, L, Rp>(
         &mut self,
         filename: &str,
-        entries: &[i32],
+        entry: i32,
+        image: S25Image,
         queue: Arc<Queue>,
         pipeline: Arc<GraphicsPipeline<Mv, L, Rp>>,
     ) where
         L: PipelineLayoutAbstract,
         Rp: RenderPassAbstract,
     {
-        log::debug!("prefetch: {:?}@{}", entries, filename);
+        let mut layer = PictLayer::empty();
+        layer.load_gpu(image, queue, pipeline, self.format);
 
-        for &e in entries {
-            self.prefetch_entry(filename, e, queue.clone(), pipeline.clone());
-        }
+        let layer = Arc::new(RwLock::new(layer));
+
+        self.cache.put((filename.into(), entry), layer.clone());
+
+        log::debug!("successfully cached: {}@{}", entry, filename);
     }
 
     pub fn set_position(&mut self, x: i32, y: i32) {
@@ -227,6 +232,10 @@ impl LayerRenderer {
         L: PipelineLayoutAbstract,
         Rp: RenderPassAbstract,
     {
+        while let Ok((f, e, i)) = self.staged_prefetch.1.try_recv() {
+            self.stage_image(&f, e, i, queue.clone(), pipeline.clone());
+        }
+
         if !self.update_flag {
             return;
         }
@@ -236,7 +245,7 @@ impl LayerRenderer {
         }
 
         if let Some((filename, entries)) = self.queued_prefetch.take() {
-            self.prefetch(&filename, &entries, queue.clone(), pipeline.clone());
+            self.prefetch(&filename, &entries);
         }
 
         self.update_flag = false;
