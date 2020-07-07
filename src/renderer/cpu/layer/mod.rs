@@ -142,7 +142,7 @@ impl LayerRenderer {
 
     pub fn update(&mut self) {
         if !self.update_flag {
-            return;
+            // return;
         }
 
         log::debug!("update");

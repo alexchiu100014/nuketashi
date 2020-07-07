@@ -11,11 +11,11 @@ pub mod utils;
 
 fn main() {
     // #[cfg(debug_assertions)]
-    {
+    /*{
         use simplelog::*;
         let logger = TermLogger::new(LevelFilter::Debug, Config::default(), TerminalMode::Mixed);
         let _ = CombinedLogger::init(vec![logger]);
-    }
+    }*/
 
     log::debug!("？？？「幾重にも辛酸を舐め、七難八苦を超え、艱難辛苦の果て、満願成就に至る——」");
 
