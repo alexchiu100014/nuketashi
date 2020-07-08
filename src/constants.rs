@@ -1,6 +1,6 @@
 // Game engine name.
 pub(crate) static GAME_ENGINE_FULL_NAME: &'static str = "冷泉院桐香 v2.50a";
-pub(crate) static GAME_ENGINE_NAME: &'static str = "ReizeiinTouka";
+pub(crate) static GAME_ENGINE_NAME: &'static str = "ReizeiinTohka";
 
 // nukitashi uses 1600x900 as a global resolution
 pub(crate) const GAME_WINDOW_WIDTH: u32 = 1600;

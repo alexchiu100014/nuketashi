@@ -44,14 +44,14 @@ pub(crate) unsafe fn create_menu_bar() {
 
     app.setMainMenu_(menubar);
 
-    // ReizeiinTouka
-    //  - About ReizeiinTouka...
+    // ReizeiinTohka
+    //  - About ReizeiinTohka...
     //  -
-    //  - Hide ReizeiinTouka
+    //  - Hide ReizeiinTohka
     //  - Hide others
     //  - Show All
     //  - --
-    //  - Quit ReizeiinTouka
+    //  - Quit ReizeiinTohka
     let app_menu = NSMenu::new(nil).autorelease();
 
     app_menu.addItem_(

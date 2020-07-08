@@ -150,7 +150,7 @@ fn draw_sample_text() {
     write_text_in_box(
         &font,
         48.0,
-        "桐香「ズコバコズコバコ孕めオラ〜♪」\nTouka \"zuko-bako zuko-bako harame-ora~!\" Touka \"zuko-bako zuko-bako harame-ora~!\"",
+        "桐香「ズコバコズコバコ孕めオラ〜♪」\nTohka \"zuko-bako zuko-bako harame-ora~!\" Touka \"zuko-bako zuko-bako harame-ora~!\"",
         (width, height),
         &mut buf,
     );

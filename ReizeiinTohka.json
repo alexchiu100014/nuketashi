@@ -1,0 +1,10 @@
+{
+    "backend.vulkano": {
+        "useDiscreteGpu": true,
+        "lruCache": 20
+    },
+    "runtime.backend": "vulkano",
+    "runtime.rootPath": "./blob",
+    "runtime.entry": "./testcase/02_NK_23H.TXT",
+    "runtime.title": "抜きゲーみたいな島に住んでる貧乳はどうすりゃいいですか？"
+}
