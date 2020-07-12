@@ -1,6 +1,6 @@
 //! Text rendering using RustType.
 
-use crate::constants::FONT_BYTES;
+use crate::{config, constants};
 use rusttype::{point, Font, Scale};
 
 use lazy_static::*;
@@ -8,12 +8,16 @@ use lazy_static::*;
 const FONT_PADDING: f32 = 2.0;
 
 lazy_static! {
-    static ref _FONT: Font<'static> =
-        Font::try_from_bytes(FONT_BYTES).expect("error constructing a Font from bytes");
+    static ref FONT_BYTES: Vec<u8> = {
+        let font_path = config::find_asset(constants::FONT_PATH).expect("failed to find font");
+        std::fs::read(font_path).expect("font not found")
+    };
+    static ref FONT: Font<'static> =
+        Font::try_from_bytes(&*FONT_BYTES).expect("error constructing a Font from bytes");
 }
 
 pub fn create_font() -> &'static Font<'static> {
-    &*_FONT
+    &*FONT
 }
 
 enum ControlCharacter {
@@ -134,10 +138,7 @@ fn draw_sample_text() {
     use std::io::BufWriter;
     use std::path::Path;
 
-    let font = {
-        let font = include_bytes!("../../../blob/NUKITASHI_D.WAR/ROUNDED-X-MGENPLUS-1M.TTF");
-        Font::try_from_bytes(font).expect("error constructing a Font from bytes")
-    };
+    let font = create_font();
 
     let width = 300;
     let height = 200;

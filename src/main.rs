@@ -1,5 +1,6 @@
 #![warn(clippy::all)]
 
+pub mod config;
 pub mod constants;
 pub mod format;
 pub mod game;
@@ -8,7 +9,6 @@ pub mod platform;
 pub mod renderer;
 pub mod script;
 pub mod utils;
-pub mod config;
 
 fn main() {
     // #[cfg(debug_assertions)]

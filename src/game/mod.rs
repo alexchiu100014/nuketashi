@@ -114,9 +114,9 @@ impl Game {
     }
 
     pub fn execute(mut self) {
+        use crate::config;
         use crate::renderer::vulkano::surface::VulkanoSurface;
         use crate::renderer::{EventDelegate, RenderingSurface};
-        use crate::config;
 
         self.load_script();
 
@@ -154,7 +154,7 @@ impl Game {
         };
 
         // for benchmark
-    
+
         event_loop.run(move |event, _evt_loop, control_flow| {
             buf.handle_event(&event, control_flow);
 
