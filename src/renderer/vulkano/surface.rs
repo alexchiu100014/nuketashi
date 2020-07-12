@@ -226,6 +226,10 @@ impl<'a> VulkanoSurface<'a> {
     pub fn format(&self) -> Format {
         self.swapchain.format()
     }
+
+    pub fn set_title(&mut self, title: &str) {
+        self.surface.window().set_title(title)
+    }
 }
 
 impl<'a> EventDelegate for VulkanoSurface<'a> {
