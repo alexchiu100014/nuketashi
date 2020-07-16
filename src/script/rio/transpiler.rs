@@ -196,9 +196,10 @@ impl Transpiler {
     }
 
     fn visit_achr(&mut self, id: i32, _args: Vec<String>) {
-        match id {
+        log::error!("unsupported animation: {}", id)
+        /* match id {
             _ => log::error!("unsupported animation: {}", id),
-        }
+        } */
     }
 
     fn visit_ldelay(&mut self, layer: i32, duration: f64) {
