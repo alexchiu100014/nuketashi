@@ -39,7 +39,7 @@ cocoa = "0.22.0"
 objc = "0.2.7"
 
 [dev-dependencies]
-png = "0.16.6"
+png = "0.16.7"
 
 [profile.dev]
 opt-level = 1
