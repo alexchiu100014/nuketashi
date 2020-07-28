@@ -166,6 +166,24 @@ impl Game {
                     *control_flow = ControlFlow::Exit;
                 }
                 Event::WindowEvent {
+                    event: WindowEvent::Resized(_),
+                    ..
+                } => {
+                    use winit::dpi::PhysicalSize;
+
+                    let window = buf.surface.window();
+
+                    let size = window.inner_size();
+                    let width = size.width;
+                    let height = size.height;
+
+                    let resized_height = (width as f64 * (9.0 / 16.0)) as u32;
+
+                    if height != resized_height {
+                        window.set_inner_size(PhysicalSize::new(width, resized_height));
+                    }
+                }
+                Event::WindowEvent {
                     event:
                         WindowEvent::MouseInput {
                             state: ElementState::Released,
@@ -174,6 +192,7 @@ impl Game {
                     ..
                 } => {
                     self.waiting = false;
+                    buf.surface.window().request_redraw();
                 }
                 Event::RedrawRequested(_) => {
                     use vulkano::sync::GpuFuture;
