@@ -19,7 +19,7 @@ category = "public.app-category.adventure-games"
 copyright = "Copyright (c) 2020 Hikaru Terazono. All rights reserved."
 
 [dependencies]
-encoding_rs = "0.8.23"
+encoding_rs = "0.8.24"
 failure = "0.1.8"
 log = "0.4.11"
 simplelog = "0.8.0"
