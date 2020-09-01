@@ -1061,9 +1061,9 @@ checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
 
 [[package]]
 name = "s25"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4e1db574074175bce198a378d7fc4e9c06b30677164b50fe0c5bb1ebaa1e0bc"
+checksum = "ef92f94aac3d6680f2150632cd2349e2c217c28b7bdc180fe4d26f76121d272e"
 
 [[package]]
 name = "same-file"
