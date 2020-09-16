@@ -162,9 +162,9 @@ dependencies = [
 
 [[package]]
 name = "cocoa"
-version = "0.23.0"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c54201c07dcf3a5ca33fececb8042aed767ee4bfd5a0235a8ceabcda956044b2"
+checksum = "6f63902e9223530efb4e26ccd0cf55ec30d592d3b42e21a28defc42a9586e832"
 dependencies = [
  "bitflags",
  "block",
@@ -777,7 +777,7 @@ dependencies = [
 name = "nkts"
 version = "0.1.0"
 dependencies = [
- "cocoa 0.23.0",
+ "cocoa 0.24.0",
  "encoding_rs",
  "failure",
  "lazy_static",
