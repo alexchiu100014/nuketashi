@@ -4,6 +4,7 @@
 #![allow(clippy::let_unit_value)]
 
 use cocoa::appkit::{NSApp, NSApplication, NSEventModifierFlags, NSMenu, NSMenuItem};
+use cocoa::base::id;
 use cocoa::base::nil;
 use cocoa::foundation::{NSAutoreleasePool, NSBundle, NSString, NSUInteger};
 
@@ -16,6 +17,30 @@ const NSEventModifierFlagOption: NSUInteger = 1 << 19;
 const NSEventModifierFlagCommand: NSUInteger = 1 << 20;
 
 use objc::runtime::Object;
+use core_foundation::runloop::{CFRunLoopRef, CFRunLoopStop};
+
+pub unsafe fn handle_panic(info: &std::panic::PanicInfo) {
+    let main_loop: id = msg_send![class!(NSRunLoop), mainRunLoop];
+    let main_loop: CFRunLoopRef = msg_send![main_loop, getCFRunLoop];
+    CFRunLoopStop(main_loop);
+
+    let _: id = msg_send![NSApp(), stopModal];
+
+    let alert: id = msg_send![class!(NSAlert), alloc];
+    let alert: id = msg_send![alert, init];
+
+    let _: id = msg_send![alert, setMessageText: NSString::alloc(nil).init_str("Error").autorelease()];
+    let _: id = msg_send![alert, setInformativeText: NSString::alloc(nil)
+                                                        .init_str(&format!("{}", info))
+                                                        .autorelease()];
+    let _: id = msg_send![alert, runModal];
+
+    std::process::exit(1);
+}
+
+pub(super) fn setup_panic_handler() {
+    std::panic::set_hook(Box::new(|p| unsafe { handle_panic(p) }));
+}
 
 #[allow(non_snake_case)]
 unsafe fn NSLocalizedString(key: &str) -> *mut Object {
