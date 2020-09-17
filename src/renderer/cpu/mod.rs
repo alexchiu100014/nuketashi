@@ -52,6 +52,7 @@ where
     Ctx: RenderingContext<CpuBackend>,
 {
     type Target = CpuImageBuffer;
+    type Future = ();
 
     fn draw_begin(&mut self, _: &Ctx) -> Option<Self::Target> {
         let mut buf = self

@@ -17,11 +17,13 @@ pub trait EventDelegate {
 /// Surface.
 pub trait RenderingSurface<B: GraphicBackend, Ctx: RenderingContext<B>> {
     type Target: RenderingTarget<B>;
+    type Future;
+
     /// Begins a draw command.
     fn draw_begin(&mut self, context: &Ctx) -> Option<Self::Target>;
 
     /// Finalizes a draw command.
-    fn draw_end(&mut self, target: Self::Target, context: &Ctx);
+    fn draw_end(&mut self, target: Self::Target, context: &Ctx) -> Self::Future;
 }
 
 /// Resources for a renderer.

@@ -5,6 +5,7 @@ pub mod shaders;
 pub mod surface;
 pub mod text;
 pub mod texture_loader;
+pub mod offscreen;
 
 use crate::renderer::*;
 use ::vulkano::command_buffer::{AutoCommandBufferBuilder, DynamicState};

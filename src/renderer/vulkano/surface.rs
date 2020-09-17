@@ -261,6 +261,7 @@ where
     Ctx: RenderingContext<VulkanoBackend> + VulkanoRenderingContext,
 {
     type Target = VulkanoSurfaceRenderTarget;
+    type Future = ();
 
     fn draw_begin(&mut self, context: &Ctx) -> Option<Self::Target> {
         use vulkano::swapchain::{AcquireError, SwapchainCreationError};

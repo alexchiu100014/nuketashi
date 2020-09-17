@@ -139,13 +139,6 @@ impl Game {
         let pipeline_text =
             pipeline::create_text_layer_pipeline(buf.device.clone(), render_pass.clone());
 
-        /* let (tex, fb) = crate::renderer::vulkano::layer::layer_texture::create_layer_texture(
-            (1600, 900),
-            buf.graphical_queue.clone(),
-            render_pass.clone(),
-            buf.format(),
-        ); */
-
         self.queue = Some(buf.graphical_queue.clone());
 
         let ctx = LayerRenderingContext {
